@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   _LoginScreenState createState() => _LoginScreenState();
@@ -31,7 +32,8 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_formKey.currentState!.validate()) {
       debugPrint('Email: ${_emailController.text}');
       debugPrint('Password: ${_passwordController.text}');
-      // Implement your login logic here
+      // Navigate to home page after successful login
+      Navigator.pushReplacementNamed(context, '/home');
     }
   }
 
@@ -124,7 +126,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       if (value == null || value.isEmpty) {
                         return 'Please enter your email';
                       }
-                      if (!value.contains('@')) {
+                      if (!value.contains('@gmail.com')) {
                         return 'Please enter a valid email';
                       }
                       return null;
@@ -149,13 +151,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _obscurePassword 
-                              ? Icons.visibility_off 
+                          _obscurePassword
+                              ? Icons.visibility_off
                               : Icons.visibility,
                           color: Colors.grey.shade600,
                         ),
                         onPressed: () => setState(
-                            () => _obscurePassword = !_obscurePassword),
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
                       ),
                     ),
                     validator: (value) {
@@ -196,7 +199,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       onPressed: _submitLogin,
                       child: const Text(
-                        'Sign In',
+                        'Log In',
                         style: TextStyle(color: Colors.white),
                       ),
                     ),
@@ -252,12 +255,61 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: _signInWithGoogle,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(Icons.g_mobiledata, color: Colors.red, size: 24),
-                          SizedBox(width: 12),
-                          Text(
+                        children: [
+                          SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: SvgPicture.asset(
+                              'assets/images/google_logo.svg',
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Text(
                             'Sign in with Google',
-                            style: TextStyle(color: Colors.black87, fontSize: 16),
+                            style: TextStyle(
+                              color: Colors.black87,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  //Facebook Sign-In Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: const BorderSide(color: Colors.grey),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        backgroundColor: Colors.grey[50],
+                      ),
+                      onPressed: _signInWithGoogle,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: SvgPicture.asset(
+                              'assets/images/facebook_logo.svg',
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Text(
+                            'Sign in with Facebook',
+                            style: TextStyle(
+                              color: Colors.black87,
+                              fontSize: 16,
+                            ),
                           ),
                         ],
                       ),

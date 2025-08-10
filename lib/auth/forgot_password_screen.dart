@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
-  const ForgotPasswordScreen({Key? key}) : super(key: key);
+  const ForgotPasswordScreen({super.key});
 
   @override
   _ForgotPasswordScreenState createState() => _ForgotPasswordScreenState();
@@ -27,10 +27,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   void _sendVerificationCode() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
-      
+
       // Simulate network delay (replace with actual API call)
       await Future.delayed(const Duration(seconds: 1));
-      
+
       setState(() {
         _isLoading = false;
         _codeSent = true;
@@ -68,9 +68,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           decoration: InputDecoration(
             labelText: 'Email',
             prefixIcon: const Icon(Icons.email),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
           ),
           keyboardType: TextInputType.emailAddress,
           validator: (value) {
@@ -212,9 +210,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (!_codeSent) 
+                  if (!_codeSent)
                     _buildEmailSection()
-                  else 
+                  else
                     _buildCodeVerificationSection(),
                 ],
               ),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class SignupScreen extends StatefulWidget {
-  const SignupScreen({Key? key}) : super(key: key);
+  const SignupScreen({super.key});
 
   @override
   State<SignupScreen> createState() => _SignupScreenState();
@@ -25,7 +25,7 @@ class _SignupScreenState extends State<SignupScreen> {
     'Business Administration',
     'Law',
     'Medicine',
-    'Architecture'
+    'Architecture',
   ];
 
   final List<String> _semesters = [
@@ -36,7 +36,7 @@ class _SignupScreenState extends State<SignupScreen> {
     'Semester 5',
     'Semester 6',
     'Semester 7',
-    'Semester 8'
+    'Semester 8',
   ];
 
   @override
@@ -67,7 +67,8 @@ class _SignupScreenState extends State<SignupScreen> {
                   color: Colors.black.withOpacity(0.3),
                   blurRadius: 15,
                   spreadRadius: 2,
-                  offset: const Offset(0, 5),)
+                  offset: const Offset(0, 5),
+                ),
               ],
             ),
             child: Form(
@@ -89,7 +90,8 @@ class _SignupScreenState extends State<SignupScreen> {
                   TextFormField(
                     controller: _fullNameController,
                     decoration: _buildInputDecoration('Full Name'),
-                    validator: (value) => value!.isEmpty ? 'Enter your name' : null,
+                    validator: (value) =>
+                        value!.isEmpty ? 'Enter your name' : null,
                   ),
                   const SizedBox(height: 16),
 
@@ -98,7 +100,8 @@ class _SignupScreenState extends State<SignupScreen> {
                     controller: _studentIdController,
                     keyboardType: TextInputType.number,
                     decoration: _buildInputDecoration('Student ID'),
-                    validator: (value) => value!.isEmpty ? 'Enter student ID' : null,
+                    validator: (value) =>
+                        value!.isEmpty ? 'Enter student ID' : null,
                   ),
                   const SizedBox(height: 16),
 
@@ -122,16 +125,13 @@ class _SignupScreenState extends State<SignupScreen> {
                     value: _selectedField,
                     decoration: _buildInputDecoration('Field of Study'),
                     items: _fieldsOfStudy.map((field) {
-                      return DropdownMenuItem(
-                        value: field,
-                        child: Text(field),
-                      );
+                      return DropdownMenuItem(value: field, child: Text(field));
                     }).toList(),
                     onChanged: (value) {
                       setState(() => _selectedField = value);
                     },
-                    validator: (value) => 
-                      value == null ? 'Select field of study' : null,
+                    validator: (value) =>
+                        value == null ? 'Select field of study' : null,
                   ),
                   const SizedBox(height: 16),
 
@@ -148,8 +148,8 @@ class _SignupScreenState extends State<SignupScreen> {
                     onChanged: (value) {
                       setState(() => _selectedSemester = value);
                     },
-                    validator: (value) => 
-                      value == null ? 'Select semester' : null,
+                    validator: (value) =>
+                        value == null ? 'Select semester' : null,
                   ),
                   const SizedBox(height: 16),
 
@@ -160,11 +160,14 @@ class _SignupScreenState extends State<SignupScreen> {
                     decoration: _buildInputDecoration(
                       'Password',
                       suffixIcon: IconButton(
-                        icon: Icon(_obscurePassword 
-                          ? Icons.visibility_off 
-                          : Icons.visibility),
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                        ),
                         onPressed: () => setState(
-                          () => _obscurePassword = !_obscurePassword),
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
                       ),
                     ),
                     validator: (value) {
@@ -182,11 +185,15 @@ class _SignupScreenState extends State<SignupScreen> {
                     decoration: _buildInputDecoration(
                       'Confirm Password',
                       suffixIcon: IconButton(
-                        icon: Icon(_obscureConfirmPassword 
-                          ? Icons.visibility_off 
-                          : Icons.visibility),
+                        icon: Icon(
+                          _obscureConfirmPassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                        ),
                         onPressed: () => setState(
-                          () => _obscureConfirmPassword = !_obscureConfirmPassword),
+                          () => _obscureConfirmPassword =
+                              !_obscureConfirmPassword,
+                        ),
                       ),
                     ),
                     validator: (value) {
