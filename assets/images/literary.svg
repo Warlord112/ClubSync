@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#f5f5dc"/>
+  
+  <!-- Book stack -->
+  <rect x="96" y="256" width="320" height="48" rx="4" fill="#8e44ad"/>
+  <rect x="96" y="304" width="320" height="48" rx="4" fill="#9b59b6"/>
+  <rect x="96" y="352" width="320" height="48" rx="4" fill="#3498db"/>
+  <rect x="96" y="208" width="320" height="48" rx="4" fill="#e74c3c"/>
+  <rect x="96" y="160" width="320" height="48" rx="4" fill="#f39c12"/>
+  <rect x="96" y="112" width="320" height="48" rx="4" fill="#2ecc71"/>
+  
+  <!-- Book titles -->
+  <rect x="112" y="128" width="160" height="16" rx="2" fill="#27ae60"/>
+  <rect x="112" y="176" width="120" height="16" rx="2" fill="#d35400"/>
+  <rect x="112" y="224" width="140" height="16" rx="2" fill="#c0392b"/>
+  <rect x="112" y="272" width="180" height="16" rx="2" fill="#8e44ad"/>
+  <rect x="112" y="320" width="160" height="16" rx="2" fill="#8e44ad"/>
+  <rect x="112" y="368" width="130" height="16" rx="2" fill="#2980b9"/>
+  
+  <!-- Quill pen -->
+  <path d="M400 80c-32 32-64 128-64 128s96-32 128-64 32-96 0-128-96 32-64 64z" fill="#ecf0f1" stroke="#34495e" stroke-width="4"/>
+  <path d="M336 208l16-48" stroke="#34495e" stroke-width="4"/>
+</svg>

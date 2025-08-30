@@ -12,10 +12,11 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  String? _selectedRole; // 'student' or 'instructor'
   final _formKey = GlobalKey<FormState>();
 
   void _signInWithGoogle() {
-    // Implement Google sign-in logic
+    // TODO: Implement Google sign-in
     debugPrint('Google sign-in pressed');
   }
 
@@ -25,16 +26,15 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not open password reset')),
       );
+      return null; // Added to satisfy lint
     });
   }
 
-  void _submitLogin() {
-    if (_formKey.currentState!.validate()) {
-      debugPrint('Email: ${_emailController.text}');
-      debugPrint('Password: ${_passwordController.text}');
-      // Navigate to home page after successful login
-      Navigator.pushReplacementNamed(context, '/home');
-    }
+  /// 🚀 For now, just go straight to Home/Dashboard
+  void _goToDashboard() {
+    debugPrint('Navigating to dashboard...');
+    debugPrint('Selected Role: $_selectedRole'); // Added for demonstration
+    Navigator.pushReplacementNamed(context, '/home');
   }
 
   @override
@@ -122,15 +122,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     keyboardType: TextInputType.emailAddress,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your email';
-                      }
-                      if (!value.contains('@gmail.com')) {
-                        return 'Please enter a valid email';
-                      }
-                      return null;
-                    },
                   ),
                   const SizedBox(height: 16),
 
@@ -161,12 +152,39 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Role Selection
+                  DropdownButtonFormField<String>(
+                    decoration: InputDecoration(
+                      labelText: 'Role',
+                      labelStyle: const TextStyle(color: Colors.black54),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey.shade400),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: const BorderSide(color: Color(0xFF6a0e33)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    value: _selectedRole,
+                    onChanged: (String? newValue) {
+                      setState(() {
+                        _selectedRole = newValue;
+                      });
+                    },
+                    items: <String>['Student', 'Instructor']
+                        .map<DropdownMenuItem<String>>((String value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value),
+                      );
+                    }).toList(),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter your password';
-                      }
-                      if (value.length < 6) {
-                        return 'Password must be at least 6 characters';
+                        return 'Please select your role';
                       }
                       return null;
                     },
@@ -186,7 +204,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Sign In Button
+                  // 🚀 Sign In Button → goes straight to Dashboard
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -197,7 +215,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      onPressed: _submitLogin,
+                      onPressed: () {
+                        if (_formKey.currentState!.validate()) {
+                          debugPrint('Form is valid. Navigating to dashboard.');
+                          _goToDashboard();
+                        } else {
+                          debugPrint('Form is invalid. Not navigating.');
+                        }
+                      },
                       child: const Text(
                         'Log In',
                         style: TextStyle(color: Colors.white),
@@ -276,10 +301,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 16),
 
-                  //Facebook Sign-In Button
+                  // Facebook Sign-In Button
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton(

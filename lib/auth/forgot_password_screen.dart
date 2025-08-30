@@ -13,7 +13,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _codeSent = false;
   bool _isLoading = false;
-  String? _verificationId;
 
   @override
   void dispose() {

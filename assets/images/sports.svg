@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#ecf0f1"/>
+  
+  <!-- Soccer ball -->
+  <circle cx="144" cy="144" r="48" fill="#34495e"/>
+  <circle cx="144" cy="144" r="44" fill="#ecf0f1"/>
+  <path d="M144 100l28 20-10 32h-36l-10-32z" fill="#34495e"/>
+  <path d="M172 120l28-20 10 32-28 20z" fill="#34495e"/>
+  <path d="M116 120l-28-20-10 32 28 20z" fill="#34495e"/>
+  <path d="M126 172l-10 32-28-20 10-32z" fill="#34495e"/>
+  <path d="M162 172l10 32 28-20-10-32z" fill="#34495e"/>
+  
+  <!-- Basketball -->
+  <circle cx="256" cy="144" r="48" fill="#e67e22"/>
+  <path d="M256 96v96M208 144h96" stroke="#34495e" stroke-width="4"/>
+  <path d="M220 108c24 24 48 24 72 0M220 180c24-24 48-24 72 0" stroke="#34495e" stroke-width="4" fill="none"/>
+  
+  <!-- Tennis ball -->
+  <circle cx="368" cy="144" r="48" fill="#f1c40f"/>
+  <path d="M368 96c-16 0-32 16-32 48s16 48 32 48 32-16 32-48-16-48-32-48z" fill="#f39c12"/>
+  <path d="M320 144h96M368 96c-16 16-16 32 0 48s16 32 0 48" stroke="#f39c12" stroke-width="4" fill="none"/>
+  
+  <!-- Baseball -->
+  <circle cx="144" cy="256" r="48" fill="#ecf0f1"/>
+  <path d="M144 208c-16 0-32 16-32 48s16 48 32 48 32-16 32-48-16-48-32-48z" stroke="#e74c3c" stroke-width="4" fill="none"/>
+  <path d="M112 224c8 8 16 8 24 0s16-8 24 0 16 8 24 0" stroke="#e74c3c" stroke-width="2" fill="none"/>
+  <path d="M112 240c8 8 16 8 24 0s16-8 24 0 16 8 24 0" stroke="#e74c3c" stroke-width="2" fill="none"/>
+  <path d="M112 256c8 8 16 8 24 0s16-8 24 0 16 8 24 0" stroke="#e74c3c" stroke-width="2" fill="none"/>
+  <path d="M112 272c8 8 16 8 24 0s16-8 24 0 16 8 24 0" stroke="#e74c3c" stroke-width="2" fill="none"/>
+  <path d="M112 288c8 8 16 8 24 0s16-8 24 0 16 8 24 0" stroke="#e74c3c" stroke-width="2" fill="none"/>
+  
+  <!-- Football -->
+  <ellipse cx="256" cy="256" rx="48" ry="32" fill="#8e44ad"/>
+  <path d="M208 256h96M256 224v64" stroke="#ecf0f1" stroke-width="2"/>
+  <path d="M232 232c16 16 32 16 48 0M232 280c16-16 32-16 48 0" stroke="#ecf0f1" stroke-width="2" fill="none"/>
+  
+  <!-- Volleyball -->
+  <circle cx="368" cy="256" r="48" fill="#ecf0f1"/>
+  <path d="M368 208c-16 0-32 16-32 48s16 48 32 48 32-16 32-48-16-48-32-48z" stroke="#3498db" stroke-width="4" fill="none"/>
+  <path d="M320 256h96M368 208c-16 16-16 32 0 48s16 32 0 48" stroke="#3498db" stroke-width="2" fill="none"/>
+  
+  <!-- Trophy -->
+  <path d="M240 352h32v48h-32z" fill="#f39c12"/>
+  <rect x="224" y="400" width="64" height="16" fill="#f1c40f"/>
+  <path d="M240 352c-16 0-32-32-32-48 0-16 16-32 16-48h64c0 16 16 32 16 48 0 16-16 48-32 48z" fill="#f1c40f"/>
+  <path d="M208 304c-16 0-32-16-32-32h32M304 304c16 0 32-16 32-32h-32" stroke="#f39c12" stroke-width="4" fill="none"/>
+</svg>

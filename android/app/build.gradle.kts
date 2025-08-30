@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "com.example.clubsync"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "27.0.12077973" // Required by image_picker_android
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11

@@ -14,8 +14,10 @@ class _SignupScreenState extends State<SignupScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  String? _selectedField;
-  String? _selectedSemester;
+  String? _selectedRole; // 'Student' or 'Instructor'
+  final _departmentController = TextEditingController();
+  String? _selectedField; // Re-added for student role
+  String? _selectedSemester; // Re-added for student role
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
@@ -26,6 +28,15 @@ class _SignupScreenState extends State<SignupScreen> {
     'Law',
     'Medicine',
     'Architecture',
+  ];
+
+  final List<String> _departments = [
+    'Computer Science and Engineering',
+    'Electrical and Electronic Engineering',
+    'Business Administration',
+    'Law',
+    'Pharmacy',
+    'English',
   ];
 
   final List<String> _semesters = [
@@ -46,6 +57,9 @@ class _SignupScreenState extends State<SignupScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _departmentController.dispose(); // Dispose new controller
+    _selectedField = null; // Clear selected field
+    _selectedSemester = null; // Clear selected semester
     super.dispose();
   }
 
@@ -86,22 +100,38 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                   const SizedBox(height: 24),
 
+                  // Role Selection Dropdown
+                  DropdownButtonFormField<String>(
+                    decoration: _buildInputDecoration('I am a'),
+                    value: _selectedRole,
+                    hint: const Text('Select your role'),
+                    items: <String>['Student', 'Instructor']
+                        .map<DropdownMenuItem<String>>((String value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value),
+                      );
+                    }).toList(),
+                    onChanged: (String? newValue) {
+                      setState(() {
+                        _selectedRole = newValue;
+                      });
+                    },
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please select your role';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
                   // Full Name
                   TextFormField(
                     controller: _fullNameController,
                     decoration: _buildInputDecoration('Full Name'),
                     validator: (value) =>
                         value!.isEmpty ? 'Enter your name' : null,
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Student ID
-                  TextFormField(
-                    controller: _studentIdController,
-                    keyboardType: TextInputType.number,
-                    decoration: _buildInputDecoration('Student ID'),
-                    validator: (value) =>
-                        value!.isEmpty ? 'Enter student ID' : null,
                   ),
                   const SizedBox(height: 16),
 
@@ -120,38 +150,87 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Field of Study Dropdown
-                  DropdownButtonFormField<String>(
-                    value: _selectedField,
-                    decoration: _buildInputDecoration('Field of Study'),
-                    items: _fieldsOfStudy.map((field) {
-                      return DropdownMenuItem(value: field, child: Text(field));
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() => _selectedField = value);
-                    },
-                    validator: (value) =>
-                        value == null ? 'Select field of study' : null,
-                  ),
-                  const SizedBox(height: 16),
+                  // Conditional Fields based on Role
+                  if (_selectedRole == 'Student' || _selectedRole == null) ...[
+                    // Student ID
+                    TextFormField(
+                      controller: _studentIdController,
+                      keyboardType: TextInputType.number,
+                      decoration: _buildInputDecoration('Student ID'),
+                      validator: (value) =>
+                          value!.isEmpty ? 'Enter student ID' : null,
+                    ),
+                    const SizedBox(height: 16),
 
-                  // Semester Dropdown
-                  DropdownButtonFormField<String>(
-                    value: _selectedSemester,
-                    decoration: _buildInputDecoration('Semester'),
-                    items: _semesters.map((semester) {
-                      return DropdownMenuItem(
-                        value: semester,
-                        child: Text(semester),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() => _selectedSemester = value);
-                    },
-                    validator: (value) =>
-                        value == null ? 'Select semester' : null,
-                  ),
-                  const SizedBox(height: 16),
+                    // Field of Study Dropdown
+                    DropdownButtonFormField<String>(
+                      value: _selectedField,
+                      decoration: _buildInputDecoration('Field of Study'),
+                      items: _fieldsOfStudy.map((field) {
+                        return DropdownMenuItem(
+                            value: field, child: Text(field));
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() => _selectedField = value);
+                      },
+                      validator: (value) =>
+                          value == null ? 'Select field of study' : null,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Semester Dropdown
+                    DropdownButtonFormField<String>(
+                      value: _selectedSemester,
+                      decoration: _buildInputDecoration('Semester'),
+                      items: _semesters.map((semester) {
+                        return DropdownMenuItem(
+                          value: semester,
+                          child: Text(semester),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() => _selectedSemester = value);
+                      },
+                      validator: (value) =>
+                          value == null ? 'Select semester' : null,
+                    ),
+                    const SizedBox(height: 16),
+                  ] else if (_selectedRole == 'Instructor') ...[
+                    // Instructor ID
+                    TextFormField(
+                      controller: _studentIdController, // Using same controller, just changing label
+                      keyboardType: TextInputType.text,
+                      decoration: _buildInputDecoration('Instructor ID'),
+                      validator: (value) =>
+                          value!.isEmpty ? 'Enter instructor ID' : null,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Department
+                    DropdownButtonFormField<String>(
+                      value: null, // No pre-selected department
+                      decoration: _buildInputDecoration('Department'),
+                      hint: const Text('Select Department'),
+                      items: _departments.map((department) {
+                        return DropdownMenuItem(
+                          value: department,
+                          child: Text(department),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _departmentController.text = value ?? '';
+                        });
+                      },
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please select a department';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                  ],
 
                   // Password
                   TextFormField(
@@ -211,7 +290,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     height: 50,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6a0e33),
+                        backgroundColor: const Color(0xFF6a0e33), // Reverted to maroon
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -222,6 +301,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
+                          color: Colors.white, // Keep text color white
                         ),
                       ),
                     ),
@@ -275,11 +355,19 @@ class _SignupScreenState extends State<SignupScreen> {
       // Form is valid - proceed with signup
       final userData = {
         'name': _fullNameController.text,
-        'studentId': _studentIdController.text,
+        'role': _selectedRole,
         'email': _emailController.text,
-        'field': _selectedField,
-        'semester': _selectedSemester,
       };
+
+      if (_selectedRole == 'Student') {
+        userData['studentId'] = _studentIdController.text;
+        userData['field'] = _selectedField;
+        userData['semester'] = _selectedSemester;
+      } else if (_selectedRole == 'Instructor') {
+        userData['instructorId'] = _studentIdController.text; // Using same controller
+        userData['department'] = _departmentController.text;
+      }
+
       print('User data: $userData');
       Navigator.pushReplacementNamed(context, '/home');
     }

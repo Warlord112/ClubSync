@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#ecf0f1"/>
+  
+  <!-- Hands forming a heart -->
+  <path d="M176 192c-16-16-32-16-48 0s-16 32 0 48l128 128 128-128c16-16 16-32 0-48s-32-16-48 0l-80 80-80-80z" fill="#e74c3c"/>
+  
+  <!-- People icons in a circle -->
+  <circle cx="144" cy="112" r="16" fill="#3498db"/>
+  <path d="M144 128v16M136 136h16M128 152c0 8 32 8 32 0" stroke="#3498db" stroke-width="4" fill="none"/>
+  
+  <circle cx="208" cy="96" r="16" fill="#2ecc71"/>
+  <path d="M208 112v16M200 120h16M192 136c0 8 32 8 32 0" stroke="#2ecc71" stroke-width="4" fill="none"/>
+  
+  <circle cx="272" cy="96" r="16" fill="#f1c40f"/>
+  <path d="M272 112v16M264 120h16M256 136c0 8 32 8 32 0" stroke="#f1c40f" stroke-width="4" fill="none"/>
+  
+  <circle cx="336" cy="112" r="16" fill="#e67e22"/>
+  <path d="M336 128v16M328 136h16M320 152c0 8 32 8 32 0" stroke="#e67e22" stroke-width="4" fill="none"/>
+  
+  <circle cx="368" cy="160" r="16" fill="#9b59b6"/>
+  <path d="M368 176v16M360 184h16M352 200c0 8 32 8 32 0" stroke="#9b59b6" stroke-width="4" fill="none"/>
+  
+  <circle cx="368" cy="224" r="16" fill="#1abc9c"/>
+  <path d="M368 240v16M360 248h16M352 264c0 8 32 8 32 0" stroke="#1abc9c" stroke-width="4" fill="none"/>
+  
+  <circle cx="336" cy="272" r="16" fill="#f39c12"/>
+  <path d="M336 288v16M328 296h16M320 312c0 8 32 8 32 0" stroke="#f39c12" stroke-width="4" fill="none"/>
+  
+  <circle cx="272" cy="288" r="16" fill="#8e44ad"/>
+  <path d="M272 304v16M264 312h16M256 328c0 8 32 8 32 0" stroke="#8e44ad" stroke-width="4" fill="none"/>
+  
+  <circle cx="208" cy="288" r="16" fill="#27ae60"/>
+  <path d="M208 304v16M200 312h16M192 328c0 8 32 8 32 0" stroke="#27ae60" stroke-width="4" fill="none"/>
+  
+  <circle cx="144" cy="272" r="16" fill="#c0392b"/>
+  <path d="M144 288v16M136 296h16M128 312c0 8 32 8 32 0" stroke="#c0392b" stroke-width="4" fill="none"/>
+  
+  <circle cx="112" cy="224" r="16" fill="#2980b9"/>
+  <path d="M112 240v16M104 248h16M96 264c0 8 32 8 32 0" stroke="#2980b9" stroke-width="4" fill="none"/>
+  
+  <circle cx="112" cy="160" r="16" fill="#16a085"/>
+  <path d="M112 176v16M104 184h16M96 200c0 8 32 8 32 0" stroke="#16a085" stroke-width="4" fill="none"/>
+  
+  <!-- Connection lines -->
+  <path d="M144 128l64-32M208 112l64-16M272 112l64 16M336 128l32 32M368 176l0 48M368 240l-32 32M336 288l-64 0M272 304l-64-16M208 304l-64-32M144 288l-32-64M112 240l0-80M112 176l32-64" stroke="#95a5a6" stroke-width="2" stroke-dasharray="4 4" fill="none"/>
+</svg>

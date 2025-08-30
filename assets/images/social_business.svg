@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#ecf0f1"/>
+  
+  <!-- Business chart -->
+  <rect x="96" y="352" width="320" height="4" fill="#34495e"/>
+  <rect x="96" y="144" width="4" height="208" fill="#34495e"/>
+  
+  <!-- Chart bars -->
+  <rect x="128" y="304" width="32" height="48" fill="#3498db"/>
+  <rect x="176" y="272" width="32" height="80" fill="#2980b9"/>
+  <rect x="224" y="240" width="32" height="112" fill="#3498db"/>
+  <rect x="272" y="208" width="32" height="144" fill="#2980b9"/>
+  <rect x="320" y="176" width="32" height="176" fill="#3498db"/>
+  
+  <!-- People icons -->
+  <circle cx="144" y="112" r="16" fill="#e74c3c"/>
+  <path d="M144 128v16M136 136h16M128 152c0 8 32 8 32 0" stroke="#e74c3c" stroke-width="4" fill="none"/>
+  
+  <circle cx="192" y="112" r="16" fill="#e67e22"/>
+  <path d="M192 128v16M184 136h16M176 152c0 8 32 8 32 0" stroke="#e67e22" stroke-width="4" fill="none"/>
+  
+  <circle cx="240" y="112" r="16" fill="#f1c40f"/>
+  <path d="M240 128v16M232 136h16M224 152c0 8 32 8 32 0" stroke="#f1c40f" stroke-width="4" fill="none"/>
+  
+  <circle cx="288" y="112" r="16" fill="#2ecc71"/>
+  <path d="M288 128v16M280 136h16M272 152c0 8 32 8 32 0" stroke="#2ecc71" stroke-width="4" fill="none"/>
+  
+  <circle cx="336" y="112" r="16" fill="#3498db"/>
+  <path d="M336 128v16M328 136h16M320 152c0 8 32 8 32 0" stroke="#3498db" stroke-width="4" fill="none"/>
+  
+  <!-- Connection lines -->
+  <path d="M144 160c16 16 32 16 48 0M192 160c16 16 32 16 48 0M240 160c16 16 32 16 48 0M288 160c16 16 32 16 48 0" stroke="#95a5a6" stroke-width="2" stroke-dasharray="4 4" fill="none"/>
+  
+  <!-- Handshake icon -->
+  <path d="M384 272c-8-8-16-8-24 0l-16 16c-8 8-16 8-24 0l-16-16c-8-8-16-8-24 0l-16 16c-8 8-16 8-24 0" stroke="#16a085" stroke-width="8" fill="none"/>
+  <path d="M384 288c-8-8-16-8-24 0l-16 16c-8 8-16 8-24 0l-16-16c-8-8-16-8-24 0l-16 16c-8 8-16 8-24 0" stroke="#1abc9c" stroke-width="8" fill="none"/>
+</svg>

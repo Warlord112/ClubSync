@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#ecf0f1"/>
+  
+  <!-- Globe -->
+  <circle cx="256" cy="256" r="160" fill="#3498db"/>
+  <circle cx="256" cy="256" r="152" fill="#2980b9"/>
+  
+  <!-- Continents -->
+  <path d="M200 140c20-10 40-5 60 0 20 5 40 15 60 5 20-10 30-30 50-25 20 5 30 20 40 40 10 20 5 50 0 70-5 20-15 40-30 50-15 10-35 10-50 20-15 10-25 30-40 35-15 5-35-5-50-15-15-10-25-20-40-30-15-10-35-20-40-35-5-15 5-35 10-50 5-15 5-30 15-40 10-10 25-15 15-25z" fill="#27ae60"/>
+  <path d="M300 300c10-5 20-15 30-10 10 5 20 25 30 30 10 5 20-5 30-15 10-10 20-20 25-35 5-15 5-35 0-50-5-15-15-25-25-35-10-10-20-20-35-25-15-5-35-5-50 0-15 5-25 15-35 25-10 10-20 20-25 35-5 15-5 35 0 50 5 15 15 25 25 35 10 10 20 20 30 15z" fill="#27ae60"/>
+  
+  <!-- Latitude/Longitude lines -->
+  <circle cx="256" cy="256" r="160" fill="none" stroke="#ecf0f1" stroke-width="2"/>
+  <circle cx="256" cy="256" r="120" fill="none" stroke="#ecf0f1" stroke-width="2"/>
+  <circle cx="256" cy="256" r="80" fill="none" stroke="#ecf0f1" stroke-width="2"/>
+  <path d="M256 96v320M96 256h320M176 136l160 240M136 176l240 160M336 136L176 376M376 176L136 336" stroke="#ecf0f1" stroke-width="2"/>
+  
+  <!-- UN Symbol -->
+  <circle cx="256" cy="256" r="40" fill="#ecf0f1"/>
+  <path d="M256 216c-8 8-16 16-16 24s8 16 16 24 16 16 24 16 16-8 24-16 16-16 16-24-8-16-16-24-16-16-24-16-16 8-24 16z" fill="none" stroke="#2c3e50" stroke-width="2"/>
+  <path d="M232 256h48M256 232v48" stroke="#2c3e50" stroke-width="2"/>
+  <circle cx="256" cy="256" r="32" fill="none" stroke="#2c3e50" stroke-width="2"/>
+</svg>
