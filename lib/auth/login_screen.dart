@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // Import Supabase
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,6 +15,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   String? _selectedRole; // 'student' or 'instructor'
   final _formKey = GlobalKey<FormState>();
+  bool _isLoading = false; // Add loading state
 
   void _signInWithGoogle() {
     // TODO: Implement Google sign-in
@@ -30,11 +32,46 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
-  /// 🚀 For now, just go straight to Home/Dashboard
-  void _goToDashboard() {
-    debugPrint('Navigating to dashboard...');
-    debugPrint('Selected Role: $_selectedRole'); // Added for demonstration
-    Navigator.pushReplacementNamed(context, '/home');
+  Future<void> _signIn() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      await Supabase.instance.client.auth.signInWithPassword(
+        email: _emailController.text,
+        password: _passwordController.text,
+      );
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/home');
+      }
+    } on AuthException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.message),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Unexpected error occurred'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -215,18 +252,20 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      onPressed: () {
-                        if (_formKey.currentState!.validate()) {
-                          debugPrint('Form is valid. Navigating to dashboard.');
-                          _goToDashboard();
-                        } else {
-                          debugPrint('Form is invalid. Not navigating.');
-                        }
-                      },
-                      child: const Text(
-                        'Log In',
-                        style: TextStyle(color: Colors.white),
-                      ),
+                      onPressed: _isLoading ? null : _signIn,
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              'Log In',
+                              style: TextStyle(color: Colors.white),
+                            ),
                     ),
                   ),
                   const SizedBox(height: 16),
