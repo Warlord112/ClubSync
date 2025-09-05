@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data/club_data.dart';
-import 'package:clubsync/clubs/club_profile_page.dart';
+import 'club_profile_page.dart';
 
 class ClubsPage extends StatefulWidget {
   final String studentId;
@@ -16,6 +16,7 @@ class _ClubsPageState extends State<ClubsPage> {
   late List<Club> clubs;
   late List<Club> filteredClubs;
   final TextEditingController _searchController = TextEditingController();
+  bool _showMyClubsOnly = false;
 
   @override
   void initState() {
@@ -26,27 +27,45 @@ class _ClubsPageState extends State<ClubsPage> {
     // Sort clubs alphabetically
     clubs.sort((a, b) => a.name.compareTo(b.name));
     filteredClubs = List.from(clubs);
-    
+
     // Add listener to search controller
     _searchController.addListener(_filterClubs);
   }
-  
+
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
-  
+
   void _filterClubs() {
     final query = _searchController.text.toLowerCase();
     setState(() {
+      // First filter by search query
+      List<Club> tempFilteredClubs;
       if (query.isEmpty) {
-        filteredClubs = List.from(clubs);
+        tempFilteredClubs = List.from(clubs);
       } else {
-        filteredClubs = clubs
-            .where((club) => club.name.toLowerCase().contains(query) ||
-                club.description.toLowerCase().contains(query))
+        tempFilteredClubs = clubs
+            .where(
+              (club) =>
+                  club.name.toLowerCase().contains(query) ||
+                  club.description.toLowerCase().contains(query),
+            )
             .toList();
+      }
+
+      // Then filter by user association if needed
+      if (_showMyClubsOnly) {
+        filteredClubs = tempFilteredClubs
+            .where(
+              (club) => club.members.any(
+                (member) => member.studentId == widget.studentId,
+              ),
+            )
+            .toList();
+      } else {
+        filteredClubs = tempFilteredClubs;
       }
     });
   }
@@ -78,7 +97,9 @@ class _ClubsPageState extends State<ClubsPage> {
                 );
               },
               child: CircleAvatar(
-                backgroundImage: AssetImage('assets/images/sunset.svg'), // Placeholder image
+                backgroundImage: AssetImage(
+                  'assets/images/sunset.svg',
+                ), // Placeholder image
                 radius: 20,
               ),
             ),
@@ -90,19 +111,52 @@ class _ClubsPageState extends State<ClubsPage> {
           // Search bar
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search clubs...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
+            child: Column(
+              children: [
+                TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search clubs...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey[200],
+                    contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                  ),
                 ),
-                filled: true,
-                fillColor: Colors.grey[200],
-                contentPadding: const EdgeInsets.symmetric(vertical: 0),
-              ),
+                const SizedBox(height: 10),
+                // Show my clubs only button
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _showMyClubsOnly = !_showMyClubsOnly;
+                        _filterClubs(); // Apply the filter
+                      });
+                    },
+                    icon: Icon(
+                      _showMyClubsOnly
+                          ? Icons.check_box
+                          : Icons.check_box_outline_blank,
+                      color: Colors.white,
+                    ),
+                    label: Text(
+                      'Show my clubs only',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF6a0e33),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           // Club list
@@ -196,10 +250,7 @@ class _ClubsPageState extends State<ClubsPage> {
                 const SizedBox(height: 8),
                 Text(
                   club.description,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                 ),
                 const SizedBox(height: 12),
                 ElevatedButton(
@@ -208,7 +259,10 @@ class _ClubsPageState extends State<ClubsPage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => ClubProfilePage(club: club, currentStudentId: widget.studentId,), // Pass actual studentId
+                        builder: (context) => ClubProfilePage(
+                          club: club,
+                          currentStudentId: widget.studentId,
+                        ), // Pass actual studentId
                       ),
                     );
                   },

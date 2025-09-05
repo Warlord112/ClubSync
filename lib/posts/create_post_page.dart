@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:clubsync/data/club_data.dart';
+import '../data/club_data.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 

@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:clubsync/auth/login_screen.dart';
-import 'package:clubsync/auth/signup_screen.dart';
-import 'package:clubsync/auth/forgot_password_screen.dart';
-import 'package:clubsync/Home/homepage.dart';
-import 'package:clubsync/clubs/club_profile_page.dart';
-import 'package:clubsync/events/events_page.dart';
-import 'package:clubsync/profile/profile_page.dart';
-import 'package:clubsync/data/club_data.dart';
-
+import 'auth/login_screen.dart';
+import 'auth/signup_screen.dart';
+import 'auth/forgot_password_screen.dart';
+import 'Home/homepage.dart'; // Keep capitalization consistent with directory structure
+import 'clubs/club_profile_page.dart';
+import 'events/events_page.dart';
+import 'profile/profile_page.dart';
+import 'data/club_data.dart';
 
 void main() {
   runApp(const MyApp());
@@ -45,18 +44,14 @@ class MyApp extends StatelessWidget {
         } else if (settings.name == '/events') {
           final args = settings.arguments as Map<String, dynamic>;
           return MaterialPageRoute(
-            builder: (context) => EventsPage(
-              clubs: args['clubs'],
-              studentId: args['studentId'],
-            ),
+            builder: (context) =>
+                EventsPage(clubs: args['clubs'], studentId: args['studentId']),
           );
         } else if (settings.name == '/profile') {
           final args = settings.arguments as Map<String, dynamic>;
           return MaterialPageRoute(
-            builder: (context) => ProfilePage(
-              studentId: args['studentId'],
-              clubs: args['clubs'],
-            ),
+            builder: (context) =>
+                ProfilePage(studentId: args['studentId'], clubs: args['clubs']),
           );
         }
         return null;

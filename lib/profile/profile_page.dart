@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:clubsync/data/club_data.dart';
+import '../data/club_data.dart';
+import 'settings_page.dart';
+import 'edit_profile_page.dart';
 
 class ProfilePage extends StatefulWidget {
   final String studentId;
   final List<Club> clubs;
 
-  const ProfilePage({
-    super.key,
-    required this.studentId,
-    required this.clubs,
-  });
+  const ProfilePage({super.key, required this.studentId, required this.clubs});
 
   @override
   _ProfilePageState createState() => _ProfilePageState();
@@ -17,13 +15,15 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   // Sample user data
-  final Map<String, dynamic> _userData = {
+  Map<String, dynamic> _userData = {
     'name': 'Alex Johnson',
     'studentId': '2020001',
     'department': 'Computer Science',
     'year': '3rd Year',
     'email': 'alex.johnson@example.edu',
     'profileImage': 'assets/images/profile.svg',
+    'bio':
+        'Computer Science student passionate about mobile app development and AI.',
   };
 
   @override
@@ -67,7 +67,19 @@ class _ProfilePageState extends State<ProfilePage> {
           IconButton(
             icon: const Icon(Icons.settings_outlined, color: Colors.white),
             onPressed: () {
-              // Navigate to settings
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SettingsPage(
+                    userData: _userData,
+                    onProfileUpdated: (updatedData) {
+                      setState(() {
+                        _userData = updatedData;
+                      });
+                    },
+                  ),
+                ),
+              );
             },
           ),
         ],
@@ -76,10 +88,11 @@ class _ProfilePageState extends State<ProfilePage> {
         child: Column(
           children: [
             _buildProfileHeader(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             _buildInfoSection(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             _buildClubsSection(),
+            const SizedBox(height: 16),
           ],
         ),
       ),
@@ -88,46 +101,25 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildProfileHeader() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      width: double.infinity,
       color: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 24),
       child: Column(
         children: [
           CircleAvatar(
-            radius: 50,
+            radius: 45,
             backgroundColor: Colors.grey[300],
             backgroundImage: AssetImage(_userData['profileImage']),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Text(
             _userData['name'],
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _userData['department'],
-            style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 4),
           Text(
-            _userData['year'],
-            style: TextStyle(fontSize: 16, color: Colors.grey[700]),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () {
-              // Edit profile
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6a0e33),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text('Edit Profile'),
+            '${_userData['department']} • ${_userData['year']}',
+            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
           ),
         ],
       ),
@@ -136,17 +128,34 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildInfoSection() {
     return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(16),
-      color: Colors.white,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Personal Information',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            'Contact Information',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 16),
-          _buildInfoItem(Icons.badge_outlined, 'Student ID', _userData['studentId']),
+          const SizedBox(height: 12),
+          _buildInfoItem(
+            Icons.badge_outlined,
+            'Student ID',
+            _userData['studentId'],
+          ),
           _buildInfoItem(Icons.email_outlined, 'Email', _userData['email']),
         ],
       ),
@@ -155,23 +164,31 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildInfoItem(IconData icon, String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          Icon(icon, color: Colors.grey[600]),
+          Icon(icon, size: 20, color: Colors.grey[600]),
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-              ),
-              Text(
-                value,
-                style: const TextStyle(fontSize: 16),
-              ),
-            ],
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                ),
+                Flexible(
+                  child: Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -180,23 +197,40 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildClubsSection() {
     return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(16),
-      color: Colors.white,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
             'My Clubs',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           _userClubs.isEmpty
               ? Center(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
                       children: [
-                        Icon(Icons.groups_outlined, size: 48, color: Colors.grey[400]),
+                        Icon(
+                          Icons.groups_outlined,
+                          size: 48,
+                          color: Colors.grey[400],
+                        ),
                         const SizedBox(height: 16),
                         Text(
                           'You are not a member of any club yet',
@@ -233,18 +267,12 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildClubItem(Club club) {
     return ListTile(
-      leading: CircleAvatar(
-        backgroundImage: AssetImage(club.profileImagePath),
-      ),
+      leading: CircleAvatar(backgroundImage: AssetImage(club.profileImagePath)),
       title: Text(club.name),
       subtitle: Text(_getUserRoleInClub(club)),
       trailing: const Icon(Icons.chevron_right),
       onTap: () {
-        Navigator.pushNamed(
-          context,
-          '/club_profile',
-          arguments: club,
-        );
+        Navigator.pushNamed(context, '/club_profile', arguments: club);
       },
     );
   }

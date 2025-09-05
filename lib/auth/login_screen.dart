@@ -12,7 +12,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
-  String? _selectedRole; // 'student' or 'instructor'
+  String? _selectedRole; // 'student' or 'moderator'
   final _formKey = GlobalKey<FormState>();
 
   void _signInWithGoogle() {
@@ -177,11 +177,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     },
                     items: <String>['Student', 'Instructor']
                         .map<DropdownMenuItem<String>>((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
+                          );
+                        })
+                        .toList(),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Please select your role';

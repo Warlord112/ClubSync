@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:clubsync/data/club_data.dart';
+import '../data/club_data.dart';
 import '../clubs/clubs_page.dart';
 import '../events/events_page.dart';
 import '../profile/profile_page.dart';
