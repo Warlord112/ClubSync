@@ -98,8 +98,9 @@ class _ClubsPageState extends State<ClubsPage> {
             .from('users')
             .select('role')
             .eq('id', user.id)
-            .single();
-        if (response.isNotEmpty) {
+            .maybeSingle(); // Changed .single() to .maybeSingle()
+
+        if (response != null && response.isNotEmpty) {
           final userRole = response['role'];
           debugPrint('ClubsPage: Fetched user role: $userRole');
           setState(() {

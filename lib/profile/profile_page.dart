@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // Import Supabase
 import '../data/club_data.dart';
 import 'settings_page.dart';
 
@@ -13,23 +14,50 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  // Sample user data
-  Map<String, dynamic> _userData = {
-    'name': 'Alex Johnson',
-    'studentId': '2020001',
-    'department': 'Computer Science',
-    'year': '3rd Year',
-    'email': 'alex.johnson@example.edu',
-    'profileImage': 'assets/images/profile.svg',
-    'bio':
-        'Computer Science student passionate about mobile app development and AI.',
-  };
+  Map<String, dynamic>? _userData; // Make nullable and remove sample data
+  bool _isLoading = true; // Add loading state
+  final SupabaseClient supabase = Supabase.instance.client; // Initialize Supabase client
 
   @override
   void initState() {
     super.initState();
-    // In a real app, you would fetch user data based on studentId
-    // For now, we'll use the sample data
+    _fetchUserProfile(); // Fetch user profile when the page initializes
+  }
+
+  Future<void> _fetchUserProfile() async {
+    try {
+      final user = supabase.auth.currentUser; 
+      if (user != null) {
+        final response = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', user.id)
+            .maybeSingle();
+
+        if (response != null) {
+          setState(() {
+            _userData = response; // Removed unnecessary cast
+          });
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('User not logged in.')),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error fetching user profile: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading profile: $e')),
+        );
+      }
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   // Get clubs where the user is a member
@@ -70,7 +98,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 context,
                 MaterialPageRoute(
                   builder: (context) => SettingsPage(
-                    userData: _userData,
+                    userData: _userData ?? {},
                     onProfileUpdated: (updatedData) {
                       setState(() {
                         _userData = updatedData;
@@ -83,18 +111,20 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildProfileHeader(),
-            const SizedBox(height: 8),
-            _buildInfoSection(),
-            const SizedBox(height: 8),
-            _buildClubsSection(),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              child: Column(
+                children: [
+                  _buildProfileHeader(),
+                  const SizedBox(height: 8),
+                  _buildInfoSection(),
+                  const SizedBox(height: 8),
+                  _buildClubsSection(),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
     );
   }
 
@@ -108,16 +138,18 @@ class _ProfilePageState extends State<ProfilePage> {
           CircleAvatar(
             radius: 45,
             backgroundColor: Colors.grey[300],
-            backgroundImage: AssetImage(_userData['profileImage']),
+            backgroundImage: AssetImage(_userData?['profileImage'] ?? 'assets/images/profile.svg'),
           ),
           const SizedBox(height: 12),
           Text(
-            _userData['name'],
+            _userData?['full_name'] ?? 'N/A',
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 4),
           Text(
-            '${_userData['department']} • ${_userData['year']}',
+            _userData?['role'] == 'Student'
+                ? '${_userData?['field_of_study'] ?? 'N/A'} • ${_userData?['semester'] ?? 'N/A'}'
+                : '${_userData?['department'] ?? 'N/A'}',
             style: TextStyle(fontSize: 14, color: Colors.grey[600]),
           ),
         ],
@@ -150,12 +182,35 @@ class _ProfilePageState extends State<ProfilePage> {
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 12),
-          _buildInfoItem(
-            Icons.badge_outlined,
-            'Student ID',
-            _userData['studentId'],
-          ),
-          _buildInfoItem(Icons.email_outlined, 'Email', _userData['email']),
+          if (_userData?['role'] == 'Student') ...[
+            _buildInfoItem(
+              Icons.badge_outlined,
+              'Student ID',
+              _userData?['student_id'] ?? 'N/A',
+            ),
+            _buildInfoItem(
+              Icons.school_outlined,
+              'Field of Study',
+              _userData?['field_of_study'] ?? 'N/A',
+            ),
+            _buildInfoItem(
+              Icons.calendar_today_outlined,
+              'Semester',
+              _userData?['semester'] ?? 'N/A',
+            ),
+          ] else if (_userData?['role'] == 'Instructor') ...[
+            _buildInfoItem(
+              Icons.badge_outlined,
+              'Instructor ID',
+              _userData?['instructor_id'] ?? 'N/A',
+            ),
+            _buildInfoItem(
+              Icons.business_outlined,
+              'Department',
+              _userData?['department'] ?? 'N/A',
+            ),
+          ],
+          _buildInfoItem(Icons.email_outlined, 'Email', _userData?['email'] ?? 'N/A'),
         ],
       ),
     );

@@ -12,8 +12,8 @@ import 'data/club_data.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Supabase.initialize(
-    url: 'https://hplrrhjfixehckloofdn.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhwbHJyaGpmaXhlaGNrbG9vZmRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcwMDUwNDMsImV4cCI6MjA3MjU4MTA0M30.d_U1zQlto4Cktje0JFTAz3kkC5ArqV1LrYz7FcVDCh4',
+    url: 'https://wddjfzeuirfhrtxemlha.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkZGpmemV1aXJmaHJ0eGVtbGhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcxNzg2MTEsImV4cCI6MjA3Mjc1NDYxMX0.6fdXIO623vVpWFWdh7XUYlaF6-4uAcifhl13BhUmL3A',
   );
   runApp(const MyApp());
 }

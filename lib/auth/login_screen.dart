@@ -3,7 +3,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final Map<String, dynamic>? userProfileData;
+  const LoginScreen({super.key, this.userProfileData});
 
   @override
   _LoginScreenState createState() => _LoginScreenState();
@@ -13,7 +14,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
-  String? _selectedRole; // 'student' or 'moderator'
+  String? _selectedRole; // 'student' or 'instructor'
   final _formKey = GlobalKey<FormState>();
   final SupabaseClient supabase = Supabase.instance.client;
 
@@ -38,14 +39,53 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (authResponse.user != null) {
+        print('LoginScreen: Auth successful for user ID: ${authResponse.user!.id}');
+
+        // Check if user profile exists in public.users
+        final existingProfile = await supabase
+            .from('users')
+            .select('id')
+            .eq('id', authResponse.user!.id)
+            .maybeSingle();
+
+        if (existingProfile == null && widget.userProfileData != null) {
+          // If no profile exists and we have data from signup, insert it.
+          print('LoginScreen: User profile not found, attempting to insert profile data from signup.');
+          try {
+            // Ensure the ID in userProfileData matches the authenticated user's ID
+            widget.userProfileData!['id'] = authResponse.user!.id;
+            await supabase.from('users').insert(widget.userProfileData!);
+            print('LoginScreen: User profile inserted successfully.');
+          } catch (e) {
+            print('LoginScreen: Error inserting user profile from signup: $e');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Error saving profile data: $e')),
+              );
+            }
+            // Even if profile insertion fails, we don't block login if auth was successful
+          }
+        } else if (existingProfile != null) {
+          print('LoginScreen: User profile already exists.');
+        } else if (widget.userProfileData == null) {
+          print('LoginScreen: No user profile data passed from signup, skipping insertion.');
+        }
+
         final response = await supabase
             .from('users')
             .select('role')
             .eq('id', authResponse.user!.id)
-            .single();
+            .maybeSingle(); // Changed .single() to .maybeSingle()
 
-        if (response.isNotEmpty) {
-          final userRole = response['role'];
+        print('LoginScreen: User role query response: $response');
+        if (response != null && response.isNotEmpty) {
+          var userRole = response['role'];
+
+          // For backward compatibility, allow 'moderator' role to log in as 'Instructor'
+          if (userRole == 'moderator') {
+            userRole = 'Instructor';
+          }
+
           if (userRole != _selectedRole) {
             await supabase.auth.signOut(); // Log out the user if role mismatch
             if (mounted) {
