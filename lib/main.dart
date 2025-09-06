@@ -15,7 +15,8 @@ Future<void> main() async {
 
   await Supabase.initialize(
     url: 'https://hplrrhjfixehckloofdn.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhwbHJyaGpmaXhlaGNrbG9vZmRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcwMDUwNDMsImV4cCI6MjA3MjU4MTA0M30.d_U1zQlto4Cktje0JFTAz3kkC5ArqV1LrYz7FcVDCh4',
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhwbHJyaGpmaXhlaGNrbG9vZmRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcwMDUwNDMsImV4cCI6MjA3MjU4MTA0M30.d_U1zQlto4Cktje0JFTAz3kkC5ArqV1LrYz7FcVDCh4',
   );
 
   // Remove this print statement after verifying connection
@@ -37,7 +38,8 @@ class MyApp extends StatelessWidget {
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
       routes: {
-        '/': (context) => const RedirectPage(), // Use RedirectPage as the initial route
+        '/': (context) =>
+            const RedirectPage(), // Use RedirectPage as the initial route
         '/login': (context) => const LoginScreen(),
         '/signup': (context) => const SignupScreen(),
         '/forgot-password': (context) => ForgotPasswordScreen(),
@@ -56,18 +58,14 @@ class MyApp extends StatelessWidget {
         } else if (settings.name == '/events') {
           final args = settings.arguments as Map<String, dynamic>;
           return MaterialPageRoute(
-            builder: (context) => EventsPage(
-              clubs: args['clubs'],
-              studentId: args['studentId'],
-            ),
+            builder: (context) =>
+                EventsPage(clubs: args['clubs'], studentId: args['studentId']),
           );
         } else if (settings.name == '/profile') {
           final args = settings.arguments as Map<String, dynamic>;
           return MaterialPageRoute(
-            builder: (context) => ProfilePage(
-              studentId: args['studentId'],
-              clubs: args['clubs'],
-            ),
+            builder: (context) =>
+                ProfilePage(studentId: args['studentId'], clubs: args['clubs']),
           );
         }
         return null;

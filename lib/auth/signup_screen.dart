@@ -107,11 +107,12 @@ class _SignupScreenState extends State<SignupScreen> {
                     hint: const Text('Select your role'),
                     items: <String>['Student', 'Instructor']
                         .map<DropdownMenuItem<String>>((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
+                          );
+                        })
+                        .toList(),
                     onChanged: (String? newValue) {
                       setState(() {
                         _selectedRole = newValue;
@@ -168,7 +169,9 @@ class _SignupScreenState extends State<SignupScreen> {
                       decoration: _buildInputDecoration('Field of Study'),
                       items: _fieldsOfStudy.map((field) {
                         return DropdownMenuItem(
-                            value: field, child: Text(field));
+                          value: field,
+                          child: Text(field),
+                        );
                       }).toList(),
                       onChanged: (value) {
                         setState(() => _selectedField = value);
@@ -198,7 +201,8 @@ class _SignupScreenState extends State<SignupScreen> {
                   ] else if (_selectedRole == 'Instructor') ...[
                     // Instructor ID
                     TextFormField(
-                      controller: _studentIdController, // Using same controller, just changing label
+                      controller:
+                          _studentIdController, // Using same controller, just changing label
                       keyboardType: TextInputType.text,
                       decoration: _buildInputDecoration('Instructor ID'),
                       validator: (value) =>
@@ -290,7 +294,9 @@ class _SignupScreenState extends State<SignupScreen> {
                     height: 50,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6a0e33), // Reverted to maroon
+                        backgroundColor: const Color(
+                          0xFF6a0e33,
+                        ), // Reverted to maroon
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -364,7 +370,8 @@ class _SignupScreenState extends State<SignupScreen> {
         userData['field'] = _selectedField;
         userData['semester'] = _selectedSemester;
       } else if (_selectedRole == 'Instructor') {
-        userData['instructorId'] = _studentIdController.text; // Using same controller
+        userData['instructorId'] =
+            _studentIdController.text; // Using same controller
         userData['department'] = _departmentController.text;
       }
 
