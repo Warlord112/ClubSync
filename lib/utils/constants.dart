@@ -55,6 +55,10 @@ const String kPromoteToExecutiveText = 'Promote to Executive';
 const String kDemoteToSubExecutiveText = 'Demote to Sub-Executive';
 const String kDemoteToGeneralMemberText = 'Demote to General Member';
 const String kRemoveMemberText = 'Remove Member';
+const String kPromoteMemberSuccessMessage = 'Member promoted successfully!'; // New: Success message for promotion
+const String kErrorPromotingMember = 'Error promoting member:'; // New: Error message for promotion
+const String kDemoteMemberSuccessMessage = 'Member demoted successfully!'; // New: Success message for demotion
+const String kErrorDemotingMember = 'Error demoting member:'; // New: Error message for demotion
 const String kCreateNewClubTitle = 'Create New Club';
 const String kClubCreatedSuccessMessage = 'Club created successfully and you are now its Advisor!';
 const String kErrorCreatingClub = 'Error creating club:';
@@ -90,6 +94,9 @@ const String kJoinRequestSentSuccess = 'Join request sent successfully!';
 const String kErrorSendingJoinRequest = 'Error sending join request:';
 const String kJoinRequestCancelledSuccess = 'Join request cancelled successfully!';
 const String kErrorCancellingJoinRequest = 'Error cancelling join request:';
+const String kLeaveGroupText = 'Leave Group'; // New: Text for leave club button
+const String kLeaveClubSuccessMessage = 'You have successfully left the club.'; // New: Success message for leaving club
+const String kErrorLeavingClub = 'Error leaving club:'; // New: Error message for leaving club
 
 // Join Request Instructor-side UI Strings
 const String kPendingJoinRequestsTitle = 'Pending Join Requests';

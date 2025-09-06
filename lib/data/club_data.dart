@@ -36,6 +36,7 @@ class ClubMember {
   bool get isSubExecutive => role == 'sub-executive';
   bool get isAdvisor => role == 'advisor';
   bool get isCoAdvisor => role == 'co-advisor';
+  bool get isGeneralMember => role == 'general'; // New: check for general member
 }
 
 class ClubJoinRequest {
@@ -112,6 +113,29 @@ class Club {
   bool isExecutiveMember(String studentId) {
     return members.any(
       (member) => member.studentId == studentId && member.isExecutive,
+    );
+  }
+
+  // Check if a student is an advisor member of this club
+  bool isAdvisorMember(String studentId) {
+    return members.any(
+      (member) => member.studentId == studentId && member.isAdvisor,
+    );
+  }
+
+  // Check if a student is an executive or advisor member of this club
+  bool isExecutiveOrAdvisorMember(String studentId) {
+    return members.any(
+      (member) =>
+          member.studentId == studentId &&
+          (member.isExecutive || member.isAdvisor || member.isCoAdvisor),
+    );
+  }
+
+  // Check if a student is a general member of this club
+  bool isGeneralClubMember(String studentId) {
+    return members.any(
+      (member) => member.studentId == studentId && member.isGeneralMember,
     );
   }
 

@@ -21,6 +21,7 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
   File? _profileImage;
   File? _coverImage;
   bool _isLoading = false;
+  bool _canEdit = false; // Control editing permissions
   final SupabaseClient supabase = Supabase.instance.client;
 
   // For activities
@@ -38,6 +39,7 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
     super.initState();
     _clubNameController = TextEditingController(text: widget.club.name);
     _descriptionController = TextEditingController(text: widget.club.description);
+    _getUserIdAndCheckPermissions(); // Fetch user ID and check permissions
     _fetchActivities();
     _fetchAchievements();
   }
@@ -51,6 +53,24 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
     _newAchievementYearController.dispose();
     _newAchievementDescriptionController.dispose();
     super.dispose();
+  }
+
+  Future<void> _getUserIdAndCheckPermissions() async {
+    final user = supabase.auth.currentUser;
+    if (user != null) {
+      final response = await supabase.from('users').select('student_id').eq('id', user.id).single();
+      final studentId = response['student_id'] as String;
+      setState(() {
+        _canEdit = widget.club.isExecutiveOrAdvisorMember(studentId);
+      });
+    } else {
+      // Handle case where user is not logged in, perhaps navigate to login
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User not logged in.')),
+        );
+      }
+    }
   }
 
   Future<void> _fetchActivities() async {
@@ -484,6 +504,7 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
                     TextFormField(
                       controller: _clubNameController,
                       decoration: _buildInputDecoration(kClubNameLabel),
+                      enabled: _canEdit, // Disable if not editable
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return kPleaseEnterClubName;
@@ -496,6 +517,7 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
                       controller: _descriptionController,
                       maxLines: 5,
                       decoration: _buildInputDecoration(kClubDescriptionLabel),
+                      enabled: _canEdit, // Disable if not editable
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return kPleaseEnterClubDescription;
@@ -511,7 +533,9 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
                         Text(kProfilePictureLabel, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
                         GestureDetector(
-                          onTap: () => _pickImage(ImageSource.gallery, (image) => setState(() => _profileImage = image)),
+                          onTap: _canEdit
+                              ? () => _pickImage(ImageSource.gallery, (image) => setState(() => _profileImage = image))
+                              : null, // Disable onTap if not editable
                           child: Container(
                             height: 150,
                             width: double.infinity,
@@ -547,7 +571,9 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
                         Text(kCoverPhotoLabel, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
                         GestureDetector(
-                          onTap: () => _pickImage(ImageSource.gallery, (image) => setState(() => _coverImage = image)),
+                          onTap: _canEdit
+                              ? () => _pickImage(ImageSource.gallery, (image) => setState(() => _coverImage = image))
+                              : null, // Disable onTap if not editable
                           child: Container(
                             height: 150,
                             width: double.infinity,
@@ -596,11 +622,11 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
                               children: [
                                 IconButton(
                                   icon: const Icon(Icons.edit, color: kPrimaryColor),
-                                  onPressed: () => _showEditActivityDialog(context, activity),
+                                  onPressed: _canEdit ? () => _showEditActivityDialog(context, activity) : null, // Disable if not editable
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.delete, color: kRedColor),
-                                  onPressed: () => _deleteActivity(activity['id'] as String),
+                                  onPressed: _canEdit ? () => _deleteActivity(activity['id'] as String) : null, // Disable if not editable
                                 ),
                               ],
                             ),
@@ -615,18 +641,20 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
                     TextFormField(
                       controller: _newActivityTitleController,
                       decoration: _buildInputDecoration(kActivityTitleLabel),
+                      enabled: _canEdit, // Disable if not editable
                     ),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _newActivityDescriptionController,
                       decoration: _buildInputDecoration(kActivityDescriptionLabel),
                       maxLines: 3,
+                      enabled: _canEdit, // Disable if not editable
                     ),
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: _addActivity,
+                        onPressed: _canEdit ? _addActivity : null, // Disable if not editable
                         style: ElevatedButton.styleFrom(
                           backgroundColor: kPrimaryColor,
                           foregroundColor: kWhiteColor,
@@ -654,11 +682,11 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
                               children: [
                                 IconButton(
                                   icon: const Icon(Icons.edit, color: kPrimaryColor),
-                                  onPressed: () => _showEditAchievementDialog(context, achievement),
+                                  onPressed: _canEdit ? () => _showEditAchievementDialog(context, achievement) : null, // Disable if not editable
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.delete, color: kRedColor),
-                                  onPressed: () => _deleteAchievement(achievement['id'] as String),
+                                  onPressed: _canEdit ? () => _deleteAchievement(achievement['id'] as String) : null, // Disable if not editable
                                 ),
                               ],
                             ),
@@ -673,18 +701,20 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
                     TextFormField(
                       controller: _newAchievementYearController,
                       decoration: _buildInputDecoration(kAchievementYearLabel),
+                      enabled: _canEdit, // Disable if not editable
                     ),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _newAchievementDescriptionController,
                       decoration: _buildInputDecoration(kAchievementDescriptionLabel),
                       maxLines: 3,
+                      enabled: _canEdit, // Disable if not editable
                     ),
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: _addAchievement,
+                        onPressed: _canEdit ? _addAchievement : null, // Disable if not editable
                         style: ElevatedButton.styleFrom(
                           backgroundColor: kPrimaryColor,
                           foregroundColor: kWhiteColor,
@@ -696,7 +726,7 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: _updateClubProfile,
+                        onPressed: _canEdit ? _updateClubProfile : null, // Disable if not editable
                         style: ElevatedButton.styleFrom(
                           backgroundColor: kPrimaryColor,
                           foregroundColor: kWhiteColor,
