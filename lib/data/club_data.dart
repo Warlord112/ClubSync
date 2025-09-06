@@ -1,7 +1,10 @@
+import 'package:supabase_flutter/supabase_flutter.dart'; // Import Supabase
+
 class ClubMember {
   final String name;
   final String position;
-  final String role; // 'executive', 'sub-executive', 'general', 'advisor', 'co-advisor'
+  final String
+  role; // 'executive', 'sub-executive', 'general', 'advisor', 'co-advisor'
   final String? profileImagePath;
   final String studentId;
 
@@ -35,12 +38,60 @@ class ClubMember {
   bool get isCoAdvisor => role == 'co-advisor';
 }
 
+class ClubJoinRequest {
+  final String studentId;
+  final String studentName;
+  final String? profileImagePath;
+  final DateTime requestDate;
+  final String status; // 'pending', 'approved', 'declined'
+  final String id; // New: Added id field
+  final String clubId; // New: Added clubId field
+
+  ClubJoinRequest({
+    required this.studentId,
+    required this.studentName,
+    this.profileImagePath,
+    required this.requestDate,
+    this.status = 'pending',
+    required this.id, // New: Added id to constructor
+    required this.clubId, // New: Added clubId to constructor
+  });
+}
+
+class Activity {
+  final String id;
+  final String title;
+  final String description;
+
+  Activity({
+    required this.id,
+    required this.title,
+    required this.description,
+  });
+}
+
+class Achievement {
+  final String id;
+  final String year;
+  final String description;
+
+  Achievement({
+    required this.id,
+    required this.year,
+    required this.description,
+  });
+}
+
 class Club {
   final String name;
   final String coverImagePath;
   final String profileImagePath;
   final String description;
   final List<ClubMember> members;
+  final List<ClubJoinRequest> joinRequests;
+  final List<Activity> activities;
+  final List<Achievement> achievements;
+  final String id; // Added id field
 
   Club({
     required this.name,
@@ -48,115 +99,91 @@ class Club {
     required this.profileImagePath,
     required this.description,
     List<ClubMember>? members,
-  }) : members = members ?? [];
-  
+    List<ClubJoinRequest>? joinRequests,
+    List<Activity>? activities,
+    List<Achievement>? achievements,
+    required this.id, // Added id to constructor
+  })  : members = members ?? [],
+        joinRequests = joinRequests ?? [],
+        activities = activities ?? [],
+        achievements = achievements ?? [];
+
   // Check if a student is an executive member of this club
   bool isExecutiveMember(String studentId) {
-    return members.any((member) => member.studentId == studentId && member.isExecutive);
+    return members.any(
+      (member) => member.studentId == studentId && member.isExecutive,
+    );
+  }
+
+  // Add a join request
+  void addJoinRequest(ClubJoinRequest request) {
+    joinRequests.add(request);
+  }
+
+  // Approve a join request
+  void approveJoinRequest(String studentId) {
+    final requestIndex = joinRequests.indexWhere(
+      (req) => req.studentId == studentId,
+    );
+    if (requestIndex != -1) {
+      final request = joinRequests[requestIndex];
+      // Add as a general member
+      members.add(
+        ClubMember(
+          name: request.studentName,
+          position: 'Member',
+          role: 'general',
+          profileImagePath: request.profileImagePath,
+          studentId: request.studentId,
+        ),
+      );
+      // Remove the request
+      joinRequests.removeAt(requestIndex);
+    }
+  }
+
+  // Decline a join request
+  void declineJoinRequest(String studentId) {
+    joinRequests.removeWhere((req) => req.studentId == studentId);
   }
 }
 
-List<Club> getClubs() {
-  List<Club> clubs = [
-    Club(
-      name: 'Art Club',
-      coverImagePath: 'assets/images/art.svg',
-      profileImagePath: 'assets/images/art.svg',
-      description: 'A club for art enthusiasts to share and create artwork.',
-      members: [
-        ClubMember(name: 'John Doe', position: 'President', role: 'executive', studentId: '2020001'),
-        ClubMember(name: 'Jane Smith', position: 'Vice President', role: 'executive', studentId: '2020002'),
-        ClubMember(name: 'Sarah Williams', position: 'Treasurer', role: 'sub-executive', studentId: '2020003'),
-        ClubMember(name: 'Alex Wilson', position: 'Member', role: 'general', studentId: '2020004'),
-      ],
-    ),
-    Club(
-      name: 'Computer Club',
-      coverImagePath: 'assets/images/computer.svg',
-      profileImagePath: 'assets/images/computer.svg',
-      description: 'For students interested in programming and technology.',
-      members: [
-        ClubMember(name: 'Mike Johnson', position: 'President', role: 'executive', studentId: '2020005'),
-        ClubMember(name: 'Emily Davis', position: 'Vice President', role: 'executive', studentId: '2020006'),
-        ClubMember(name: 'David Brown', position: 'Event Coordinator', role: 'sub-executive', studentId: '2020007'),
-        ClubMember(name: 'Olivia Martinez', position: 'Member', role: 'general', studentId: '2020008'),
-      ],
-    ),
-    Club(
-      name: 'Literary Club',
-      coverImagePath: 'assets/images/literary.svg',
-      profileImagePath: 'assets/images/literary.svg',
-      description: 'A club for literature lovers and aspiring writers.',
-      members: [
-        ClubMember(name: 'Daniel Taylor', position: 'President', role: 'executive', studentId: '2020009'),
-        ClubMember(name: 'Sophia Anderson', position: 'Vice President', role: 'executive', studentId: '2020010'),
-      ],
-    ),
-    Club(
-      name: 'MUN Club',
-      coverImagePath: 'assets/images/mun.svg',
-      profileImagePath: 'assets/images/mun.svg',
-      description: 'Model United Nations club for debate and diplomacy.',
-      members: [
-        ClubMember(name: 'Ethan Thomas', position: 'President', role: 'executive', studentId: '2020011'),
-        ClubMember(name: 'Emma Wilson', position: 'Vice President', role: 'executive', studentId: '2020012'),
-      ],
-    ),
-    Club(
-      name: 'Photography Club',
-      coverImagePath: 'assets/images/sunset.svg',
-      profileImagePath: 'assets/images/sunset.svg',
-      description: 'For photography enthusiasts to share and learn techniques.',
-      members: [
-        ClubMember(name: 'Claire Dangais', position: 'President', role: 'executive', studentId: '2020013'),
-        ClubMember(name: 'Noah Martin', position: 'Vice President', role: 'executive', studentId: '2020014'),
-      ],
-    ),
-    Club(
-      name: 'Research Club',
-      coverImagePath: 'assets/images/research.svg',
-      profileImagePath: 'assets/images/research.svg',
-      description: 'For students interested in academic research.',
-      members: [
-        ClubMember(name: 'Ava Johnson', position: 'President', role: 'executive', studentId: '2020015'),
-        ClubMember(name: 'Liam Brown', position: 'Vice President', role: 'executive', studentId: '2020016'),
-      ],
-    ),
-    Club(
-      name: 'Social Business Club',
-      coverImagePath: 'assets/images/social_business.svg',
-      profileImagePath: 'assets/images/social_business.svg',
-      description: 'For students interested in social entrepreneurship.',
-      members: [
-        ClubMember(name: 'Isabella Garcia', position: 'President', role: 'executive', studentId: '2020017'),
-        ClubMember(name: 'Mason Davis', position: 'Vice President', role: 'executive', studentId: '2020018'),
-      ],
-    ),
-    Club(
-      name: 'Social Service Club',
-      coverImagePath: 'assets/images/social_service.svg',
-      profileImagePath: 'assets/images/social_service.svg',
-      description: 'A dedicated group of students committed to making a positive impact in our community through volunteer work, fundraising, and awareness campaigns. We organize regular service activities, collaborate with local non-profit organizations, and develop leadership skills while helping those in need.',
-      members: [
-        ClubMember(name: 'Amelia Wilson', position: 'President', role: 'executive', studentId: '2020019'),
-        ClubMember(name: 'Lucas Martinez', position: 'Vice President', role: 'executive', studentId: '2020020'),
-        ClubMember(name: 'Harper Thomas', position: 'Treasurer', role: 'sub-executive', studentId: '2020021'),
-        ClubMember(name: 'Evelyn Anderson', position: 'Event Coordinator', role: 'sub-executive', studentId: '2020022'),
-        ClubMember(name: 'Logan Taylor', position: 'Member', role: 'general', studentId: '2020023'),
-        ClubMember(name: 'Mia Johnson', position: 'Member', role: 'general', studentId: '2020024'),
-      ],
-    ),
-    Club(
-      name: 'Sports Club',
-      coverImagePath: 'assets/images/sports.svg',
-      profileImagePath: 'assets/images/sports.svg',
-      description: 'For sports enthusiasts and athletes.',
-      members: [
-        ClubMember(name: 'Benjamin Smith', position: 'President', role: 'executive', studentId: '2020025'),
-        ClubMember(name: 'Charlotte Brown', position: 'Vice President', role: 'executive', studentId: '2020026'),
-      ],
-    ),
-  ];
-  clubs.sort((a, b) => a.name.compareTo(b.name));
-  return clubs;
+Future<List<Club>> getClubs() async {
+  final SupabaseClient supabase = Supabase.instance.client;
+  try {
+    final response = await supabase.from('clubs').select(
+        '*, club_members(*)' // Select all club fields and related club_members
+    );
+
+    final List<Club> clubs = [];
+    for (var clubData in response as List) {
+      final List<ClubMember> members = [];
+      for (var memberData in clubData['club_members'] as List) {
+        members.add(ClubMember(
+          name: memberData['name'] as String,
+          position: memberData['position'] as String,
+          role: memberData['role'] as String,
+          profileImagePath: memberData['profile_image_path'] as String?,
+          studentId: memberData['student_id'] as String,
+        ));
+      }
+
+      clubs.add(Club(
+        id: clubData['id'] as String,
+        name: clubData['name'] as String,
+        description: clubData['description'] as String,
+        profileImagePath: clubData['profile_image_path'] as String? ?? 'assets/images/computer.svg', // Default image
+        coverImagePath: clubData['cover_image_path'] as String? ?? 'assets/images/sunset.svg', // Default image
+        members: members,
+        // Initialize other lists as empty for now
+        joinRequests: [],
+        activities: [],
+        achievements: [],
+      ));
+    }
+    return clubs;
+  } catch (e) {
+    print('Error fetching clubs: $e');
+    return [];
+  }
 }

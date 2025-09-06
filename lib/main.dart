@@ -1,3 +1,4 @@
+import 'package:clubsync/redirect_page.dart';
 import 'package:flutter/material.dart';
 import 'package:clubsync/auth/login_screen.dart';
 import 'package:clubsync/auth/signup_screen.dart';
@@ -8,7 +9,7 @@ import 'package:clubsync/events/events_page.dart';
 import 'package:clubsync/profile/profile_page.dart';
 import 'package:clubsync/data/club_data.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:clubsync/redirect_page.dart'; // Import the new redirect page
+// Import the new redirect page
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

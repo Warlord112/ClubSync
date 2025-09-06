@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:clubsync/models/post.dart';
-import 'package:clubsync/data/club_data.dart';
+import '../models/post.dart';
+import '../data/club_data.dart';
 import 'dart:io';
 
 class PostsPage extends StatefulWidget {

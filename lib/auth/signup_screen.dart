@@ -14,7 +14,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  String? _selectedRole; // 'Student' or 'Instructor'
+  String? _selectedRole; // 'Student' or 'Moderator'
   final _departmentController = TextEditingController();
   String? _selectedField; // Re-added for student role
   String? _selectedSemester; // Re-added for student role
@@ -49,6 +49,20 @@ class _SignupScreenState extends State<SignupScreen> {
     'Semester 7',
     'Semester 8',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Add listener to student ID controller for automatic email generation
+    _studentIdController.addListener(_updateEmailFromStudentId);
+  }
+
+  void _updateEmailFromStudentId() {
+    if ((_selectedRole == 'Student' || _selectedRole == null) &&
+        _studentIdController.text.isNotEmpty) {
+      _emailController.text = '${_studentIdController.text}@eastdelta.edu.bd';
+    }
+  }
 
   @override
   void dispose() {
@@ -105,7 +119,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     decoration: _buildInputDecoration('I am a'),
                     value: _selectedRole,
                     hint: const Text('Select your role'),
-                    items: <String>['Student', 'Instructor']
+                    items: <String>['Student', 'Moderator']
                         .map<DropdownMenuItem<String>>((String value) {
                           return DropdownMenuItem<String>(
                             value: value,
@@ -116,6 +130,8 @@ class _SignupScreenState extends State<SignupScreen> {
                     onChanged: (String? newValue) {
                       setState(() {
                         _selectedRole = newValue;
+                        // Trigger email update when role changes to Student
+                        _updateEmailFromStudentId();
                       });
                     },
                     validator: (value) {
@@ -136,21 +152,6 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // University Email
-                  TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: _buildInputDecoration('University Email'),
-                    validator: (value) {
-                      if (value!.isEmpty) return 'Enter email';
-                      if (!value.endsWith('@eastdelta.edu.bd')) {
-                        return 'Use university email';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-
                   // Conditional Fields based on Role
                   if (_selectedRole == 'Student' || _selectedRole == null) ...[
                     // Student ID
@@ -160,6 +161,21 @@ class _SignupScreenState extends State<SignupScreen> {
                       decoration: _buildInputDecoration('Student ID'),
                       validator: (value) =>
                           value!.isEmpty ? 'Enter student ID' : null,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // University Email
+                    TextFormField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: _buildInputDecoration('University Email'),
+                      validator: (value) {
+                        if (value!.isEmpty) return 'Enter email';
+                        if (!value.endsWith('@eastdelta.edu.bd')) {
+                          return 'Use university email';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 16),
 
@@ -198,15 +214,30 @@ class _SignupScreenState extends State<SignupScreen> {
                           value == null ? 'Select semester' : null,
                     ),
                     const SizedBox(height: 16),
-                  ] else if (_selectedRole == 'Instructor') ...[
-                    // Instructor ID
+                  ] else if (_selectedRole == 'Moderator') ...[
+                    // Moderator ID
                     TextFormField(
                       controller:
                           _studentIdController, // Using same controller, just changing label
                       keyboardType: TextInputType.text,
-                      decoration: _buildInputDecoration('Instructor ID'),
+                      decoration: _buildInputDecoration('Moderator ID'),
                       validator: (value) =>
-                          value!.isEmpty ? 'Enter instructor ID' : null,
+                          value!.isEmpty ? 'Enter moderator ID' : null,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // University Email
+                    TextFormField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: _buildInputDecoration('University Email'),
+                      validator: (value) {
+                        if (value!.isEmpty) return 'Enter email';
+                        if (!value.endsWith('@eastdelta.edu.bd')) {
+                          return 'Use university email';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 16),
 
@@ -320,6 +351,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     child: const Text.rich(
                       TextSpan(
                         text: 'Already have an account? ',
+                        style: TextStyle(color: Color(0xFF6a0e33)),
                         children: [
                           TextSpan(
                             text: 'Sign In',
