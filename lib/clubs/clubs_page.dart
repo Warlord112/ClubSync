@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../data/club_data.dart';
 import 'club_profile_page.dart';
+import 'create_club_page.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ClubsPage extends StatefulWidget {
   final String studentId;
@@ -17,19 +19,33 @@ class _ClubsPageState extends State<ClubsPage> {
   late List<Club> filteredClubs;
   final TextEditingController _searchController = TextEditingController();
   bool _showMyClubsOnly = false;
+  bool _isCurrentUserInstructor = false;
+  bool _isLoading = true; // Added loading state
+  final SupabaseClient supabase = Supabase.instance.client;
 
   @override
   void initState() {
     super.initState();
+    _initializePage();
+    // Add listener to search controller
+    _searchController.addListener(_filterClubs);
+  }
+
+  Future<void> _initializePage() async {
+    debugPrint('ClubsPage: _initializePage started');
+    await _fetchUserRole();
     // Initialize clubs list with members
     clubs = getClubs();
 
     // Sort clubs alphabetically
+    debugPrint('ClubsPage: Clubs initialized and sorted');
     clubs.sort((a, b) => a.name.compareTo(b.name));
     filteredClubs = List.from(clubs);
 
-    // Add listener to search controller
-    _searchController.addListener(_filterClubs);
+    setState(() {
+      _isLoading = false; // Set loading to false after role is fetched and clubs initialized
+      debugPrint('ClubsPage: _isLoading set to false, _isCurrentUserInstructor: $_isCurrentUserInstructor');
+    });
   }
 
   @override
@@ -70,8 +86,52 @@ class _ClubsPageState extends State<ClubsPage> {
     });
   }
 
+  Future<void> _fetchUserRole() async {
+    debugPrint('ClubsPage: _fetchUserRole started');
+    final user = supabase.auth.currentUser;
+    if (user != null) {
+      debugPrint('ClubsPage: User is logged in: ${user.id}');
+      try {
+        final response = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+        if (response.isNotEmpty) {
+          final userRole = response['role'];
+          debugPrint('ClubsPage: Fetched user role: $userRole');
+          setState(() {
+            _isCurrentUserInstructor = userRole == 'Instructor'; // Corrected to 'Instructor'
+            debugPrint('ClubsPage: _isCurrentUserInstructor set to: $_isCurrentUserInstructor');
+          });
+        } else {
+          debugPrint('ClubsPage: User role not found in database for user: ${user.id}');
+          setState(() {
+            _isCurrentUserInstructor = false;
+          });
+        }
+      } catch (e) {
+        debugPrint('ClubsPage: Error fetching user role: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error fetching user role: $e')),
+          );
+        }
+        setState(() {
+          _isCurrentUserInstructor = false;
+        });
+      }
+    } else {
+      debugPrint('ClubsPage: User is not logged in.');
+      setState(() {
+        _isCurrentUserInstructor = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    debugPrint('ClubsPage: build method called, _isLoading: $_isLoading, _isCurrentUserInstructor: $_isCurrentUserInstructor');
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -161,22 +221,38 @@ class _ClubsPageState extends State<ClubsPage> {
           ),
           // Club list
           Expanded(
-            child: filteredClubs.isEmpty
-                ? const Center(
-                    child: Text(
-                      'No clubs found',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: filteredClubs.length,
-                    itemBuilder: (context, index) {
-                      return _buildClubCard(filteredClubs[index]);
-                    },
-                  ),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : filteredClubs.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No clubs found',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: filteredClubs.length,
+                        itemBuilder: (context, index) {
+                          return _buildClubCard(filteredClubs[index]);
+                        },
+                      ),
           ),
         ],
       ),
+      floatingActionButton: _isCurrentUserInstructor
+          ? FloatingActionButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CreateClubPage(),
+                  ),
+                );
+              },
+              backgroundColor: const Color(0xFF6a0e33),
+              child: const Icon(Icons.add, color: Colors.white),
+            )
+          : null,
     );
   }
 

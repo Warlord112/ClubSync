@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,6 +15,81 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   String? _selectedRole; // 'student' or 'moderator'
   final _formKey = GlobalKey<FormState>();
+  final SupabaseClient supabase = Supabase.instance.client;
+
+  Future<void> _signIn() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    if (_selectedRole == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select your role.')),
+        );
+      }
+      return;
+    }
+
+    try {
+      final AuthResponse authResponse = await supabase.auth.signInWithPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
+
+      if (authResponse.user != null) {
+        final response = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', authResponse.user!.id)
+            .single();
+
+        if (response.isNotEmpty) {
+          final userRole = response['role'];
+          if (userRole != _selectedRole) {
+            await supabase.auth.signOut(); // Log out the user if role mismatch
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Login failed: You are registered as $userRole, please select $userRole to login.')),
+              );
+            }
+            return;
+          }
+        } else {
+          await supabase.auth.signOut();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Login failed: User role not found in database.')),
+            );
+          }
+          return;
+        }
+
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/home');
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Login failed: Authentication response user is null.')),
+          );
+        }
+        return;
+      }
+    } on AuthException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message)),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('An unexpected error occurred: $e')),
+        );
+      }
+    }
+  }
 
   void _signInWithGoogle() {
     // TODO: Implement Google sign-in
@@ -28,13 +104,6 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       return null; // Added to satisfy lint
     });
-  }
-
-  /// 🚀 For now, just go straight to Home/Dashboard
-  void _goToDashboard() {
-    debugPrint('Navigating to dashboard...');
-    debugPrint('Selected Role: $_selectedRole'); // Added for demonstration
-    Navigator.pushReplacementNamed(context, '/home');
   }
 
   @override
@@ -216,14 +285,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      onPressed: () {
-                        if (_formKey.currentState!.validate()) {
-                          debugPrint('Form is valid. Navigating to dashboard.');
-                          _goToDashboard();
-                        } else {
-                          debugPrint('Form is invalid. Not navigating.');
-                        }
-                      },
+                      onPressed: _signIn,
                       child: const Text(
                         'Log In',
                         style: TextStyle(color: Colors.white),

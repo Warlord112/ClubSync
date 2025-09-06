@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data/club_data.dart';
 import 'settings_page.dart';
-import 'edit_profile_page.dart';
 
 class ProfilePage extends StatefulWidget {
   final String studentId;

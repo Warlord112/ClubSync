@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../data/club_data.dart';
-import 'club_join_requests_page.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../utils/constants.dart';
+import 'edit_club_profile_page.dart'; // Added import for EditClubProfilePage
 
 class ClubProfilePage extends StatefulWidget {
   final Club club;
@@ -19,8 +21,16 @@ class ClubProfilePage extends StatefulWidget {
 class _ClubProfilePageState extends State<ClubProfilePage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  bool _isCurrentUserInstructor =
-      false; // Added to check if current user is an instructor
+  bool _isCurrentUserInstructor = false;
+  bool _isCurrentUserStudent = false; // Added to check if current user is a student
+  bool _isClubCreator = false; // New: Tracks if the current user created this club
+  bool _isMemberOfClub = false; // New: Tracks if the current user is a member of this club
+  bool _hasPendingRequest = false; // New: Tracks if the current user has a pending join request
+  final SupabaseClient supabase = Supabase.instance.client;
+
+  List<Activity> _activities = []; // New: To store fetched activities
+  List<Achievement> _achievements = []; // New: To store fetched achievements
+  List<ClubJoinRequest> _pendingJoinRequests = []; // New: To store pending join requests
 
   @override
   void initState() {
@@ -29,15 +39,275 @@ class _ClubProfilePageState extends State<ClubProfilePage>
     _tabController.addListener(() {
       setState(() {});
     });
+    _fetchInitialData(); // Refactored to fetch all necessary initial data
 
-    // For demonstration, assume instructor IDs start with 'inst'
-    _isCurrentUserInstructor = widget.currentStudentId.startsWith('inst');
     debugPrint(
       'ClubProfilePage - currentStudentId: ${widget.currentStudentId}',
     );
-    debugPrint(
-      'ClubProfilePage - _isCurrentUserInstructor: $_isCurrentUserInstructor',
-    );
+  }
+
+  Future<void> _fetchInitialData() async {
+    await _fetchUserRole();
+    await _checkIfClubCreator(); // Call new method
+    await _checkMembership();
+    await _fetchActivities(); // Fetch activities
+    await _fetchAchievements(); // Fetch achievements
+    await _checkPendingRequest(); // New: Check for pending join requests
+    await _fetchPendingJoinRequests(); // New: Fetch pending join requests for instructor
+    setState(() {}); // Trigger rebuild after all data is fetched
+  }
+
+  Future<void> _fetchUserRole() async {
+    final user = supabase.auth.currentUser;
+    if (user != null) {
+      final response = await supabase
+          .from(kUsersTable)
+          .select('role')
+          .eq('id', user.id)
+          .single();
+      if (response.isNotEmpty) {
+        final userRole = response['role'];
+        setState(() {
+          _isCurrentUserInstructor = userRole == kRoleInstructor;
+          _isCurrentUserStudent = userRole == kRoleStudent; // Set student role
+        });
+      }
+    }
+  }
+
+  Future<void> _checkIfClubCreator() async {
+    final user = supabase.auth.currentUser;
+    if (user != null) {
+      // Check if the current user's ID matches the club's created_by ID
+      final response = await supabase
+          .from(kClubsTable)
+          .select('id')
+          .eq('id', widget.club.id)
+          .eq('created_by', user.id)
+          .limit(1)
+          .single();
+      setState(() {
+        _isClubCreator = response.isNotEmpty; // If a record is found, they are the creator
+      });
+    }
+  }
+
+  Future<void> _checkMembership() async {
+    final user = supabase.auth.currentUser;
+    if (user != null) {
+      final response = await supabase
+          .from(kClubMembersTable) // Assuming a 'club_members' table exists
+          .select()
+          .eq('club_id', widget.club.id)
+          .eq('student_id', user.id) // Assuming student_id is user.id
+          .limit(1)
+          .single();
+
+      setState(() {
+        _isMemberOfClub = response.isNotEmpty; // If a record is found, they are a member
+      });
+    }
+  }
+
+  Future<void> _checkPendingRequest() async {
+    final user = supabase.auth.currentUser;
+    if (user != null) {
+      try {
+        final response = await supabase
+            .from(kJoinRequestsTable)
+            .select('id')
+            .eq('club_id', widget.club.id)
+            .eq('student_id', user.id)
+            .eq('status', kStatusPending)
+            .limit(1)
+            .single();
+        setState(() {
+          _hasPendingRequest = response.isNotEmpty;
+        });
+      } catch (e) {
+        // Handle case where no pending request is found (response will be empty)
+        setState(() {
+          _hasPendingRequest = false;
+        });
+        debugPrint('Error checking pending request: $e');
+      }
+    }
+  }
+
+  Future<void> _fetchPendingJoinRequests() async {
+    if (!_isCurrentUserInstructor || !_isClubCreator) {
+      _pendingJoinRequests = [];
+      return; // Only instructors who created the club can view requests
+    }
+
+    try {
+      final response = await supabase
+          .from(kJoinRequestsTable)
+          .select('id, student_id, student_name, request_date, status')
+          .eq('club_id', widget.club.id)
+          .eq('status', kStatusPending);
+
+      setState(() {
+        _pendingJoinRequests = response.map((data) => ClubJoinRequest(
+              id: data['id'] as String,
+              studentId: data['student_id'] as String,
+              studentName: data['student_name'] as String,
+              requestDate: DateTime.parse(data['request_date'] as String),
+              status: data['status'] as String,
+              clubId: widget.club.id, // Add clubId here
+            )).toList();
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$kErrorFetchingJoinRequests $e')),
+        );
+      }
+      debugPrint('Error fetching pending join requests: $e');
+    }
+  }
+
+  Future<void> _sendJoinRequest() async {
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text(kLoginRequiredMessage)),
+          );
+        }
+        return;
+      }
+
+      // Fetch user's full name from the 'users' table
+      final userData = await supabase
+          .from(kUsersTable)
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+
+      if (userData.isEmpty || userData['full_name'] == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text(kUserFullNameNotFound)),
+          );
+        }
+        return;
+      }
+
+      final userName = userData['full_name'] as String;
+
+      await supabase.from(kJoinRequestsTable).insert({
+        'club_id': widget.club.id,
+        'student_id': user.id,
+        'student_name': userName,
+        'request_date': DateTime.now().toIso8601String(),
+        'status': kStatusPending,
+      });
+
+      setState(() {
+        _hasPendingRequest = true;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(kJoinRequestSentSuccess)),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$kErrorSendingJoinRequest $e')),
+        );
+      }
+      debugPrint('Error sending join request: $e');
+    }
+  }
+
+  Future<void> _cancelJoinRequest() async {
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text(kLoginRequiredMessage)),
+          );
+        }
+        return;
+      }
+
+      await supabase
+          .from(kJoinRequestsTable)
+          .delete()
+          .eq('club_id', widget.club.id)
+          .eq('student_id', user.id)
+          .eq('status', kStatusPending);
+
+      setState(() {
+        _hasPendingRequest = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(kJoinRequestCancelledSuccess)),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$kErrorCancellingJoinRequest $e')),
+        );
+      }
+      debugPrint('Error cancelling join request: $e');
+    }
+  }
+
+  Future<void> _fetchActivities() async {
+    try {
+      final response = await supabase
+          .from(kActivitiesTable)
+          .select('*')
+          .eq('club_id', widget.club.id)
+          .order('created_at', ascending: true);
+      setState(() {
+        _activities = response.map((data) => Activity(
+              id: data['id'] as String,
+              title: data['title'] as String,
+              description: data['description'] as String,
+            )).toList();
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$kErrorFetchingActivities $e')),
+        );
+      }
+      debugPrint('Error fetching activities: $e');
+    }
+  }
+
+  Future<void> _fetchAchievements() async {
+    try {
+      final response = await supabase
+          .from(kAchievementsTable)
+          .select('*')
+          .eq('club_id', widget.club.id)
+          .order('year', ascending: true);
+      setState(() {
+        _achievements = response.map((data) => Achievement(
+              id: data['id'] as String,
+              year: data['year'] as String,
+              description: data['description'] as String,
+            )).toList();
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$kErrorFetchingAchievements $e')),
+        );
+      }
+      debugPrint('Error fetching achievements: $e');
+    }
   }
 
   @override
@@ -65,7 +335,7 @@ class _ClubProfilePageState extends State<ClubProfilePage>
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF6a0e33),
+                    color: kPrimaryColor,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -94,12 +364,12 @@ class _ClubProfilePageState extends State<ClubProfilePage>
         ],
       ),
       bottomNavigationBar: Container(
-        color: const Color(0xFF6a0e33),
+        color: kPrimaryColor,
         child: TabBar(
           controller: _tabController,
-          labelColor: Colors.white,
+          labelColor: kWhiteColor,
           unselectedLabelColor: Colors.white70,
-          indicatorColor: Colors.white,
+          indicatorColor: kWhiteColor,
           tabs: const [
             Tab(text: 'Club Profile', icon: Icon(Icons.info)),
             Tab(text: 'Event Details', icon: Icon(Icons.event)),
@@ -145,16 +415,16 @@ class _ClubProfilePageState extends State<ClubProfilePage>
                   ),
                   child: const Icon(
                     Icons.arrow_back,
-                    color: Colors.white,
+                    color: kWhiteColor,
                     size: 20,
                   ),
                 ),
                 onPressed: () => Navigator.pop(context),
               ),
-              title: Text(
-                'Club Details',
-                style: const TextStyle(
-                  color: Colors.white,
+              title: const Text(
+                kClubDetailsTitle,
+                style: TextStyle(
+                  color: kWhiteColor,
                   fontWeight: FontWeight.bold,
                   fontSize: 18,
                   shadows: [
@@ -166,6 +436,48 @@ class _ClubProfilePageState extends State<ClubProfilePage>
                   ],
                 ),
               ),
+              actions: [
+                if (_isCurrentUserInstructor && _isMemberOfClub) // Only show edit button to instructor who is a member
+                  IconButton(
+                    icon: const Icon(Icons.edit, color: kWhiteColor),
+                    onPressed: _editClubProfile,
+                  ),
+                if (_isCurrentUserStudent && !_isMemberOfClub) // Only show join/cancel for students who are not members
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: _hasPendingRequest
+                        ? ElevatedButton(
+                            onPressed: _cancelJoinRequest,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: kRedColor,
+                              foregroundColor: kWhiteColor,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: const Text(
+                              kCancelRequestText,
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          )
+                        : ElevatedButton(
+                            onPressed: _sendJoinRequest,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: kPrimaryColor, // Maroon color
+                              foregroundColor: kWhiteColor, // Text color
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8), // Rounded corners
+                              ),
+                            ),
+                            child: const Text(
+                              kJoinClubText,
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                  ),
+              ],
             ),
           ),
         ),
@@ -208,13 +520,12 @@ class _ClubProfilePageState extends State<ClubProfilePage>
         String? newRole;
         String? newPosition;
 
-        if (member.role == 'general') {
-          newRole = 'sub-executive';
-          newPosition =
-              'Sub-Executive Member'; // Default sub-executive position
-        } else if (member.role == 'sub-executive') {
-          newRole = 'executive';
-          newPosition = 'Executive Member'; // Default executive position
+        if (member.role == kRoleGeneral) {
+          newRole = kRoleSubExecutive;
+          newPosition = kPositionSubExecutive; // Default sub-executive position
+        } else if (member.role == kRoleSubExecutive) {
+          newRole = kRoleExecutive;
+          newPosition = kPositionExecutive; // Default executive position
         }
 
         if (newRole != null) {
@@ -246,10 +557,10 @@ class _ClubProfilePageState extends State<ClubProfilePage>
                   // Section header with icon
                   Row(
                     children: [
-                      Icon(Icons.event_note, color: const Color(0xFF6a0e33)),
+                      Icon(Icons.event_note, color: kPrimaryColor),
                       const SizedBox(width: 8),
                       const Text(
-                        'Our Activities',
+                        kOurActivitiesTitle,
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -261,18 +572,10 @@ class _ClubProfilePageState extends State<ClubProfilePage>
                   const SizedBox(height: 8),
 
                   // Activities list
-                  _buildActivityItem(
-                    'Regular Meetings',
-                    'We meet every week to discuss new ideas and plan upcoming events.',
-                  ),
-                  _buildActivityItem(
-                    'Workshops',
-                    'We organize workshops to help members develop their skills.',
-                  ),
-                  _buildActivityItem(
-                    'Community Outreach',
-                    'We engage with the wider community through various initiatives.',
-                  ),
+                  if (_activities.isEmpty)
+                    Text(kNoActivitiesFoundText, style: TextStyle(color: kGreyColor[600]))
+                  else
+                    ..._activities.map((activity) => _buildActivityItem(activity)),
                 ],
               ),
             ),
@@ -293,10 +596,10 @@ class _ClubProfilePageState extends State<ClubProfilePage>
                   // Section header with icon
                   Row(
                     children: [
-                      Icon(Icons.emoji_events, color: const Color(0xFF6a0e33)),
+                      Icon(Icons.emoji_events, color: kPrimaryColor),
                       const SizedBox(width: 8),
                       const Text(
-                        'Our Achievements',
+                        kOurAchievementsTitle,
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -308,18 +611,10 @@ class _ClubProfilePageState extends State<ClubProfilePage>
                   const SizedBox(height: 8),
 
                   // Achievements list
-                  _buildAchievementItem(
-                    '2023',
-                    'Won the Best Club Award at the Annual Club Fair',
-                  ),
-                  _buildAchievementItem(
-                    '2022',
-                    'Successfully organized 10+ events with over 500 participants',
-                  ),
-                  _buildAchievementItem(
-                    '2021',
-                    'Raised funds for local charity organizations',
-                  ),
+                  if (_achievements.isEmpty)
+                    Text(kNoAchievementsFoundText, style: TextStyle(color: kGreyColor[600]))
+                  else
+                    ..._achievements.map((achievement) => _buildAchievementItem(achievement)),
                 ],
               ),
             ),
@@ -329,14 +624,14 @@ class _ClubProfilePageState extends State<ClubProfilePage>
     );
   }
 
-  Widget _buildActivityItem(String title, String description) {
+  Widget _buildActivityItem(Activity activity) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Bullet point icon
-          Icon(Icons.circle, size: 10, color: const Color(0xFF6a0e33)),
+          Icon(Icons.circle, size: 10, color: kPrimaryColor),
           const SizedBox(width: 10),
           // Content
           Expanded(
@@ -344,7 +639,7 @@ class _ClubProfilePageState extends State<ClubProfilePage>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  activity.title,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -352,8 +647,8 @@ class _ClubProfilePageState extends State<ClubProfilePage>
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  description,
-                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  activity.description,
+                  style: TextStyle(fontSize: 14, color: kGreyColor[600]),
                 ),
               ],
             ),
@@ -363,7 +658,7 @@ class _ClubProfilePageState extends State<ClubProfilePage>
     );
   }
 
-  Widget _buildAchievementItem(String year, String achievement) {
+  Widget _buildAchievementItem(Achievement achievement) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: Row(
@@ -373,13 +668,13 @@ class _ClubProfilePageState extends State<ClubProfilePage>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xFF6a0e33),
+              color: kPrimaryColor,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
-              year,
+              achievement.year,
               style: const TextStyle(
-                color: Colors.white,
+                color: kWhiteColor,
                 fontWeight: FontWeight.bold,
                 fontSize: 13,
               ),
@@ -390,7 +685,7 @@ class _ClubProfilePageState extends State<ClubProfilePage>
           Expanded(
             child: Padding(
               padding: const EdgeInsets.only(top: 4.0),
-              child: Text(achievement, style: const TextStyle(fontSize: 14)),
+              child: Text(achievement.description, style: const TextStyle(fontSize: 14)),
             ),
           ),
         ],
@@ -420,7 +715,7 @@ class _ClubProfilePageState extends State<ClubProfilePage>
                       : title.contains('Executive')
                       ? Icons.stars
                       : Icons.people,
-                  color: const Color(0xFF6a0e33),
+                  color: kPrimaryColor,
                 ),
                 const SizedBox(width: 8),
                 Text(
@@ -428,7 +723,7 @@ class _ClubProfilePageState extends State<ClubProfilePage>
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF6a0e33),
+                    color: kPrimaryColor,
                   ),
                 ),
               ],
@@ -442,7 +737,7 @@ class _ClubProfilePageState extends State<ClubProfilePage>
                 child: ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: CircleAvatar(
-                    backgroundColor: Colors.grey[300],
+                    backgroundColor: kGreyColor[300],
                     child: Text(
                       member['name']![0],
                       style: const TextStyle(color: Colors.black),
@@ -454,7 +749,7 @@ class _ClubProfilePageState extends State<ClubProfilePage>
                   ),
                   subtitle: Text(
                     member['position']!,
-                    style: TextStyle(color: Colors.grey[700]),
+                    style: TextStyle(color: kGreyColor[700]),
                   ),
                   onTap: () {
                     _showMemberOptionsDialog(member);
@@ -490,13 +785,13 @@ class _ClubProfilePageState extends State<ClubProfilePage>
                   Icon(Icons.person),
                   Padding(
                     padding: EdgeInsets.only(left: 8.0),
-                    child: Text('View Profile'),
+                    child: Text(kViewProfileText),
                   ),
                 ],
               ),
             ),
             if (_isCurrentUserInstructor) ...[
-              if (member.role == 'general' || member.role == 'sub-executive')
+              if (member.role == kRoleGeneral || member.role == kRoleSubExecutive)
                 SimpleDialogOption(
                   onPressed: () {
                     Navigator.pop(context); // Close the dialog
@@ -508,15 +803,15 @@ class _ClubProfilePageState extends State<ClubProfilePage>
                       Padding(
                         padding: const EdgeInsets.only(left: 8.0),
                         child: Text(
-                          member.role == 'general'
-                              ? 'Promote to Sub-Executive'
-                              : 'Promote to Executive',
+                          member.role == kRoleGeneral
+                              ? kPromoteToSubExecutiveText
+                              : kPromoteToExecutiveText,
                         ),
                       ),
                     ],
                   ),
                 ),
-              if (member.role == 'executive' || member.role == 'sub-executive')
+              if (member.role == kRoleExecutive || member.role == kRoleSubExecutive)
                 SimpleDialogOption(
                   onPressed: () {
                     Navigator.pop(context); // Close the dialog
@@ -528,9 +823,9 @@ class _ClubProfilePageState extends State<ClubProfilePage>
                       Padding(
                         padding: const EdgeInsets.only(left: 8.0),
                         child: Text(
-                          member.role == 'executive'
-                              ? 'Demote to Sub-Executive'
-                              : 'Demote to General Member',
+                          member.role == kRoleExecutive
+                              ? kDemoteToSubExecutiveText
+                              : kDemoteToGeneralMemberText,
                         ),
                       ),
                     ],
@@ -543,12 +838,12 @@ class _ClubProfilePageState extends State<ClubProfilePage>
                 },
                 child: const Row(
                   children: <Widget>[
-                    Icon(Icons.remove_circle_outline, color: Colors.red),
+                    Icon(Icons.remove_circle_outline, color: kRedColor),
                     Padding(
                       padding: EdgeInsets.only(left: 8.0),
                       child: Text(
-                        'Remove Member',
-                        style: TextStyle(color: Colors.red),
+                        kRemoveMemberText,
+                        style: TextStyle(color: kRedColor),
                       ),
                     ),
                   ],
@@ -569,12 +864,12 @@ class _ClubProfilePageState extends State<ClubProfilePage>
         String? newRole;
         String? newPosition;
 
-        if (member.role == 'executive') {
-          newRole = 'sub-executive';
-          newPosition = 'Sub-Executive Member';
-        } else if (member.role == 'sub-executive') {
-          newRole = 'general';
-          newPosition = 'Member';
+        if (member.role == kRoleExecutive) {
+          newRole = kRoleSubExecutive;
+          newPosition = kPositionSubExecutive;
+        } else if (member.role == kRoleSubExecutive) {
+          newRole = kRoleGeneral;
+          newPosition = kPositionGeneral;
         }
 
         if (newRole != null) {
@@ -612,10 +907,10 @@ class _ClubProfilePageState extends State<ClubProfilePage>
                   // Section header with icon
                   Row(
                     children: [
-                      Icon(Icons.event_note, color: const Color(0xFF6a0e33)),
+                      Icon(Icons.event_note, color: kPrimaryColor),
                       const SizedBox(width: 8),
                       const Text(
-                        'Upcoming Events',
+                        kUpcomingEventsTitle,
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -632,13 +927,13 @@ class _ClubProfilePageState extends State<ClubProfilePage>
                       padding: const EdgeInsets.symmetric(vertical: 16.0),
                       child: Column(
                         children: [
-                          Icon(Icons.event, size: 48, color: Colors.grey[400]),
+                          Icon(Icons.event, size: 48, color: kGreyColor[400]),
                           const SizedBox(height: 12),
                           Text(
-                            'No upcoming events',
+                            kNoUpcomingEventsText,
                             style: TextStyle(
                               fontSize: 16,
-                              color: Colors.grey[600],
+                              color: kGreyColor[600],
                             ),
                           ),
                         ],
@@ -665,10 +960,10 @@ class _ClubProfilePageState extends State<ClubProfilePage>
                   // Section header with icon
                   Row(
                     children: [
-                      Icon(Icons.history, color: const Color(0xFF6a0e33)),
+                      Icon(Icons.history, color: kPrimaryColor),
                       const SizedBox(width: 8),
                       const Text(
-                        'Past Events',
+                        kPastEventsTitle,
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -688,14 +983,14 @@ class _ClubProfilePageState extends State<ClubProfilePage>
                           Icon(
                             Icons.event_available,
                             size: 48,
-                            color: Colors.grey[400],
+                            color: kGreyColor[400],
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'No past events',
+                            kNoPastEventsText,
                             style: TextStyle(
                               fontSize: 16,
-                              color: Colors.grey[600],
+                              color: kGreyColor[600],
                             ),
                           ),
                         ],
@@ -720,100 +1015,94 @@ class _ClubProfilePageState extends State<ClubProfilePage>
         .where((m) => m.isCoAdvisor)
         .toList();
     final executiveMembers = widget.club.members
-        .where((m) => m.role == 'executive')
+        .where((m) => m.role == kRoleExecutive)
         .toList();
     final subExecutiveMembers = widget.club.members
-        .where((m) => m.role == 'sub-executive')
+        .where((m) => m.role == kRoleSubExecutive)
         .toList();
     final generalMembers = widget.club.members
-        .where((m) => m.role == 'general')
+        .where((m) => m.role == kRoleGeneral)
         .toList();
-
-    // Check if current user is an executive member to show join requests button
-    final bool canViewJoinRequests =
-        _isCurrentUserInstructor ||
-        executiveMembers.any(
-          (m) => m.studentId == '2020001',
-        ); // Assuming current user ID
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Join Requests Button (only for executives)
-          if (canViewJoinRequests) ...[
+          // Pending Join Requests (only for club creator)
+          if (_isCurrentUserInstructor && _isClubCreator) ...[
             Card(
               elevation: 2,
               margin: const EdgeInsets.only(bottom: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          ClubJoinRequestsPage(club: widget.club),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.person_add, color: kPrimaryColor),
+                        const SizedBox(width: 8),
+                        const Text(
+                          kPendingJoinRequestsTitle,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
-                  );
-                },
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF6a0e33).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.person_add,
-                          color: Color(0xFF6a0e33),
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Join Requests',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    if (_pendingJoinRequests.isEmpty)
+                      Text(kNoPendingRequests, style: TextStyle(color: kGreyColor[600]))
+                    else
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _pendingJoinRequests.length,
+                        itemBuilder: (context, index) {
+                          final request = _pendingJoinRequests[index];
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: kGreyColor[300],
+                                child: Text(request.studentName[0], style: const TextStyle(color: Colors.black)),
+                              ),
+                              title: Text(request.studentName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                              subtitle: Text('Requested on ${request.requestDate.day}/${request.requestDate.month}/${request.requestDate.year}'),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.check_circle, color: Colors.green),
+                                    onPressed: () => _approveJoinRequest(request),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.cancel, color: kRedColor),
+                                    onPressed: () => _declineJoinRequest(request),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${widget.club.joinRequests.length} pending requests',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
-                      const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 16,
-                        color: Colors.grey,
-                      ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
             ),
+            const SizedBox(height: 24),
           ],
 
           // Advisor
           if (advisorMembers.isNotEmpty) ...[
             _buildPositionSection(
-              'Advisor',
+              kAdvisorTitle,
               advisorMembers
                   .map((m) => {'name': m.name, 'position': m.position})
                   .toList(),
@@ -824,7 +1113,7 @@ class _ClubProfilePageState extends State<ClubProfilePage>
           // Co-Advisor
           if (coAdvisorMembers.isNotEmpty) ...[
             _buildPositionSection(
-              'Co-Advisor',
+              kCoAdvisorTitle,
               coAdvisorMembers
                   .map((m) => {'name': m.name, 'position': m.position})
                   .toList(),
@@ -835,7 +1124,7 @@ class _ClubProfilePageState extends State<ClubProfilePage>
           // Executive body
           if (executiveMembers.isNotEmpty) ...[
             _buildPositionSection(
-              'Executive Body',
+              kExecutiveBodyTitle,
               executiveMembers
                   .map((m) => {'name': m.name, 'position': m.position})
                   .toList(),
@@ -846,7 +1135,7 @@ class _ClubProfilePageState extends State<ClubProfilePage>
           // Sub executive body
           if (subExecutiveMembers.isNotEmpty) ...[
             _buildPositionSection(
-              'Sub Executive Body',
+              kSubExecutiveBodyTitle,
               subExecutiveMembers
                   .map((m) => {'name': m.name, 'position': m.position})
                   .toList(),
@@ -857,7 +1146,7 @@ class _ClubProfilePageState extends State<ClubProfilePage>
           // General members
           if (generalMembers.isNotEmpty) ...[
             _buildPositionSection(
-              'General Members',
+              kGeneralMembersTitle,
               generalMembers
                   .map((m) => {'name': m.name, 'position': m.position})
                   .toList(),
@@ -868,16 +1157,82 @@ class _ClubProfilePageState extends State<ClubProfilePage>
             Center(
               child: Column(
                 children: [
-                  Icon(Icons.people_outline, size: 64, color: Colors.grey[400]),
+                  Icon(Icons.people_outline, size: 64, color: kGreyColor[400]),
                   const SizedBox(height: 16),
                   Text(
-                    'No members yet',
-                    style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                    kNoMembersText,
+                    style: TextStyle(fontSize: 18, color: kGreyColor[600]),
                   ),
                 ],
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _approveJoinRequest(ClubJoinRequest request) async {
+    try {
+      // Add student to club_members table
+      await supabase.from(kClubMembersTable).insert({
+        'club_id': request.clubId,
+        'student_id': request.studentId,
+        'name': request.studentName,
+        'position': kPositionMember,
+        'role': kRoleGeneral,
+        'joined_at': DateTime.now().toIso8601String(),
+      });
+
+      // Update join_request status to approved
+      await supabase.from(kJoinRequestsTable).update({
+        'status': kStatusApproved,
+      }).eq('id', request.id);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(kJoinRequestApprovedSuccess)),
+        );
+      }
+      _fetchPendingJoinRequests(); // Refresh pending requests
+      _checkMembership(); // Refresh membership status
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$kErrorApprovingJoinRequest $e')),
+        );
+      }
+      debugPrint('Error approving join request: $e');
+    }
+  }
+
+  Future<void> _declineJoinRequest(ClubJoinRequest request) async {
+    try {
+      // Update join_request status to declined (or delete the request)
+      await supabase.from(kJoinRequestsTable).update({
+        'status': kStatusDeclined,
+      }).eq('id', request.id);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(kJoinRequestDeclinedSuccess)),
+        );
+      }
+      _fetchPendingJoinRequests(); // Refresh pending requests
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$kErrorDecliningJoinRequest $e')),
+        );
+      }
+      debugPrint('Error declining join request: $e');
+    }
+  }
+
+  void _editClubProfile() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditClubProfilePage(club: widget.club),
       ),
     );
   }

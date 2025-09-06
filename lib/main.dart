@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'auth/login_screen.dart';
 import 'auth/signup_screen.dart';
 import 'auth/forgot_password_screen.dart';
@@ -8,7 +9,12 @@ import 'events/events_page.dart';
 import 'profile/profile_page.dart';
 import 'data/club_data.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Supabase.initialize(
+    url: 'https://hplrrhjfixehckloofdn.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhwbHJyaGpmaXhlaGNrbG9vZmRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcwMDUwNDMsImV4cCI6MjA3MjU4MTA0M30.d_U1zQlto4Cktje0JFTAz3kkC5ArqV1LrYz7FcVDCh4',
+  );
   runApp(const MyApp());
 }
 
