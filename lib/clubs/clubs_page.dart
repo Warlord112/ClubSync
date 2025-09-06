@@ -26,6 +26,8 @@ class _ClubsPageState extends State<ClubsPage> {
   @override
   void initState() {
     super.initState();
+    clubs = []; // Initialize clubs as an empty list
+    filteredClubs = []; // Initialize filteredClubs as an empty list
     _initializePage();
     // Add listener to search controller
     _searchController.addListener(_filterClubs);
@@ -35,7 +37,7 @@ class _ClubsPageState extends State<ClubsPage> {
     debugPrint('ClubsPage: _initializePage started');
     await _fetchUserRole();
     // Initialize clubs list with members
-    clubs = getClubs();
+    clubs = await getClubs();
 
     // Sort clubs alphabetically
     debugPrint('ClubsPage: Clubs initialized and sorted');
@@ -241,13 +243,18 @@ class _ClubsPageState extends State<ClubsPage> {
       ),
       floatingActionButton: _isCurrentUserInstructor
           ? FloatingActionButton(
-              onPressed: () {
-                Navigator.push(
+              onPressed: () async { // Make onPressed async
+                final result = await Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => const CreateClubPage(),
                   ),
-                );
+                ); // Await the result
+
+                if (result == true) {
+                  // If a club was successfully created, refresh the list
+                  await _initializePage();
+                }
               },
               backgroundColor: const Color(0xFF6a0e33),
               child: const Icon(Icons.add, color: Colors.white),

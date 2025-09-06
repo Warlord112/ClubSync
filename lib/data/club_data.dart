@@ -1,3 +1,5 @@
+import 'package:supabase_flutter/supabase_flutter.dart'; // Import Supabase
+
 class ClubMember {
   final String name;
   final String position;
@@ -146,8 +148,42 @@ class Club {
   }
 }
 
-List<Club> getClubs() {
-  List<Club> clubs = []; // Return an empty list to remove hardcoded dummy clubs
-  // clubs.sort((a, b) => a.name.compareTo(b.name));
-  return clubs;
+Future<List<Club>> getClubs() async {
+  final SupabaseClient supabase = Supabase.instance.client;
+  try {
+    final response = await supabase.from('clubs').select(
+        '*, club_members(*)' // Select all club fields and related club_members
+    );
+
+    final List<Club> clubs = [];
+    for (var clubData in response as List) {
+      final List<ClubMember> members = [];
+      for (var memberData in clubData['club_members'] as List) {
+        members.add(ClubMember(
+          name: memberData['name'] as String,
+          position: memberData['position'] as String,
+          role: memberData['role'] as String,
+          profileImagePath: memberData['profile_image_path'] as String?,
+          studentId: memberData['student_id'] as String,
+        ));
+      }
+
+      clubs.add(Club(
+        id: clubData['id'] as String,
+        name: clubData['name'] as String,
+        description: clubData['description'] as String,
+        profileImagePath: clubData['profile_image_path'] as String? ?? 'assets/images/computer.svg', // Default image
+        coverImagePath: clubData['cover_image_path'] as String? ?? 'assets/images/sunset.svg', // Default image
+        members: members,
+        // Initialize other lists as empty for now
+        joinRequests: [],
+        activities: [],
+        achievements: [],
+      ));
+    }
+    return clubs;
+  } catch (e) {
+    print('Error fetching clubs: $e');
+    return [];
+  }
 }

@@ -15,12 +15,34 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
+  bool _isLoading = true; // Add loading state
   
   // Sample student ID for testing
   final String _currentStudentId = '2020001'; // Reverted to original student ID
   
   // Initialize clubs list
-  final List<Club> _clubs = getClubs();
+  List<Club> _clubs = []; // Initialize as empty list
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchClubs(); // Call async function to fetch clubs
+  }
+
+  Future<void> _fetchClubs() async {
+    try {
+      final fetchedClubs = await getClubs();
+      setState(() {
+        _clubs = fetchedClubs;
+        _isLoading = false; // Set loading to false after clubs are fetched
+      });
+    } catch (e) {
+      print('Error fetching clubs in homepage: $e');
+      setState(() {
+        _isLoading = false; // Also set to false on error
+      });
+    }
+  }
 
   // Get the current screen based on selected index
   Widget _getScreenForIndex(int index) {
@@ -44,7 +66,9 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: _getScreenForIndex(_selectedIndex),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _getScreenForIndex(_selectedIndex),
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: const Color(0xFF6a0e33),
         selectedItemColor: Colors.white,

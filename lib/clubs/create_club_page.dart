@@ -70,7 +70,7 @@ class _CreateClubPageState extends State<CreateClubPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Club created successfully and you are now its Advisor!')),
         );
-        Navigator.of(context).pop(); // Go back to the clubs page
+        Navigator.of(context).pop(true); // Go back to the clubs page and signal success
       }
     } catch (e) {
       if (mounted) {
