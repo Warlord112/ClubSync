@@ -3,6 +3,7 @@ import '../data/club_data.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/constants.dart';
 import 'edit_club_profile_page.dart'; // Added import for EditClubProfilePage
+import '../profile/profile_page.dart';
 
 class ClubProfilePage extends StatefulWidget {
   final Club club;
@@ -22,31 +23,91 @@ class _ClubProfilePageState extends State<ClubProfilePage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _isCurrentUserInstructor = false;
-  bool _isCurrentUserStudent = false; // Added to check if current user is a student
-  bool _isClubCreator = false; // New: Tracks if the current user created this club
-  bool _isMemberOfClub = false; // New: Tracks if the current user is a member of this club
-  bool _hasPendingRequest = false; // New: Tracks if the current user has a pending join request
+  bool _isCurrentUserStudent =
+      false; // Added to check if current user is a student
+  bool _isClubCreator =
+      false; // New: Tracks if the current user created this club
+  bool _isMemberOfClub =
+      false; // New: Tracks if the current user is a member of this club
+  bool _hasPendingRequest =
+      false; // New: Tracks if the current user has a pending join request
+  Club? _currentClub; // New: Mutable club object
   final SupabaseClient supabase = Supabase.instance.client;
 
   List<Activity> _activities = []; // New: To store fetched activities
   List<Achievement> _achievements = []; // New: To store fetched achievements
-  List<ClubJoinRequest> _pendingJoinRequests = []; // New: To store pending join requests
+  List<ClubJoinRequest> _pendingJoinRequests =
+      []; // New: To store pending join requests
 
   @override
   void initState() {
     super.initState();
+    _currentClub = widget.club; // Initialize _currentClub
+
+    // Immediate local membership check for instant UI accuracy on navigation
+    try {
+      final user = supabase.auth.currentUser;
+      final idsToCheck = <String>{
+        widget.currentStudentId,
+        if (user != null) user.id,
+      };
+      if (_currentClub != null && _currentClub!.members.isNotEmpty) {
+        final localHit = _currentClub!.members.any(
+          (m) => idsToCheck.contains(m.studentId),
+        );
+        if (localHit) {
+          _isMemberOfClub = true;
+        }
+      }
+    } catch (_) {}
+
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
       setState(() {});
     });
     _fetchInitialData(); // Refactored to fetch all necessary initial data
-
-    debugPrint(
-      'ClubProfilePage - currentStudentId: ${widget.currentStudentId}',
-    );
   }
 
   Future<void> _fetchInitialData() async {
+    // Fetch the latest club data from the database
+    try {
+      final response = await supabase
+          .from(kClubsTable)
+          .select('*, club_members(*)')
+          .eq('id', widget.club.id)
+          .single();
+
+      final List<ClubMember> members = [];
+      for (var memberData in response['club_members'] as List) {
+        members.add(
+          ClubMember(
+            name: memberData['name'] as String,
+            position: memberData['position'] as String,
+            role: memberData['role'] as String,
+            profileImagePath: memberData['profile_image_path'] as String?,
+            studentId: memberData['student_id'] as String,
+          ),
+        );
+      }
+
+      setState(() {
+        _currentClub = Club(
+          id: response['id'] as String,
+          name: response['name'] as String,
+          description: response['description'] as String,
+          profileImagePath:
+              response['profile_image_path'] as String? ??
+              'assets/images/computer.svg',
+          coverImagePath:
+              response['cover_image_path'] as String? ??
+              'assets/images/sunset.svg',
+          members: members,
+        );
+      });
+    } catch (e) {
+      debugPrint('Error fetching club data: $e');
+    }
+
     await _fetchUserRole();
     await _checkIfClubCreator(); // Call new method
     await _checkMembership();
@@ -82,12 +143,13 @@ class _ClubProfilePageState extends State<ClubProfilePage>
       final response = await supabase
           .from(kClubsTable)
           .select('id')
-          .eq('id', widget.club.id)
+          .eq('id', _currentClub!.id)
           .eq('created_by', user.id)
           .limit(1)
           .single();
       setState(() {
-        _isClubCreator = response.isNotEmpty; // If a record is found, they are the creator
+        _isClubCreator =
+            response.isNotEmpty; // If a record is found, they are the creator
       });
     }
   }
@@ -95,16 +157,68 @@ class _ClubProfilePageState extends State<ClubProfilePage>
   Future<void> _checkMembership() async {
     final user = supabase.auth.currentUser;
     if (user != null) {
-      final response = await supabase
-          .from(kClubMembersTable) // Assuming a 'club_members' table exists
-          .select()
-          .eq('club_id', widget.club.id)
-          .eq('student_id', user.id) // Assuming student_id is user.id
-          .limit(1)
-          .single();
+      debugPrint(
+        'DEBUG: _checkMembership - club_id: ${_currentClub!.id}, student_id: ${widget.currentStudentId}',
+      ); // DEBUG
+
+      // 1) Prefer local members list from _currentClub to detect membership quickly
+      bool isMember = false;
+      try {
+        final idsToCheck = <String>{widget.currentStudentId, user.id};
+        if (_currentClub != null && _currentClub!.members.isNotEmpty) {
+          final localHit = _currentClub!.members.any(
+            (m) => idsToCheck.contains(m.studentId),
+          );
+          if (localHit) {
+            isMember = true;
+            debugPrint(
+              'DEBUG: _checkMembership - matched via local members list',
+            );
+          }
+        }
+      } catch (e) {
+        debugPrint('DEBUG: _checkMembership - local members check error: $e');
+      }
+
+      // 2) If not found locally, query club_members table
+      Map<String, dynamic>? response;
+      if (!isMember) {
+        response = await supabase
+            .from(kClubMembersTable)
+            .select()
+            .eq('club_id', _currentClub!.id)
+            .or(
+              'student_id.eq.${widget.currentStudentId},student_id.eq.${user.id}',
+            )
+            .limit(1)
+            .maybeSingle();
+        isMember = response != null;
+      }
+
+      // 3) If still not found, consider approved join requests as membership
+      if (!isMember) {
+        try {
+          final approved = await supabase
+              .from(kJoinRequestsTable)
+              .select('id')
+              .eq('club_id', _currentClub!.id)
+              .or(
+                'student_id.eq.${widget.currentStudentId},student_id.eq.${user.id}',
+              )
+              .eq('status', kStatusApproved)
+              .limit(1)
+              .maybeSingle();
+          isMember = approved != null;
+        } catch (e) {
+          debugPrint('Error checking approved join requests: $e');
+        }
+      }
 
       setState(() {
-        _isMemberOfClub = response.isNotEmpty; // If a record is found, they are a member
+        _isMemberOfClub = isMember;
+        debugPrint(
+          'DEBUG: _isMemberOfClub set to: $_isMemberOfClub. club_members match: ${response != null}',
+        ); // DEBUG
       });
     }
   }
@@ -116,13 +230,15 @@ class _ClubProfilePageState extends State<ClubProfilePage>
         final response = await supabase
             .from(kJoinRequestsTable)
             .select('id')
-            .eq('club_id', widget.club.id)
-            .eq('student_id', user.id)
+            .eq('club_id', _currentClub!.id)
+            .or(
+              'student_id.eq.${widget.currentStudentId},student_id.eq.${user.id}',
+            )
             .eq('status', kStatusPending)
             .limit(1)
-            .single();
+            .maybeSingle();
         setState(() {
-          _hasPendingRequest = response.isNotEmpty;
+          _hasPendingRequest = response != null;
         });
       } catch (e) {
         // Handle case where no pending request is found (response will be empty)
@@ -144,18 +260,22 @@ class _ClubProfilePageState extends State<ClubProfilePage>
       final response = await supabase
           .from(kJoinRequestsTable)
           .select('id, student_id, student_name, request_date, status')
-          .eq('club_id', widget.club.id)
+          .eq('club_id', _currentClub!.id)
           .eq('status', kStatusPending);
 
       setState(() {
-        _pendingJoinRequests = response.map((data) => ClubJoinRequest(
-              id: data['id'] as String,
-              studentId: data['student_id'] as String,
-              studentName: data['student_name'] as String,
-              requestDate: DateTime.parse(data['request_date'] as String),
-              status: data['status'] as String,
-              clubId: widget.club.id, // Add clubId here
-            )).toList();
+        _pendingJoinRequests = response
+            .map(
+              (data) => ClubJoinRequest(
+                id: data['id'] as String,
+                studentId: data['student_id'] as String,
+                studentName: data['student_name'] as String,
+                requestDate: DateTime.parse(data['request_date'] as String),
+                status: data['status'] as String,
+                clubId: _currentClub!.id, // Add clubId here
+              ),
+            )
+            .toList();
       });
     } catch (e) {
       if (mounted) {
@@ -172,9 +292,9 @@ class _ClubProfilePageState extends State<ClubProfilePage>
       final user = supabase.auth.currentUser;
       if (user == null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text(kLoginRequiredMessage)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text(kLoginRequiredMessage)));
         }
         return;
       }
@@ -188,18 +308,76 @@ class _ClubProfilePageState extends State<ClubProfilePage>
 
       if (userData.isEmpty || userData['full_name'] == null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text(kUserFullNameNotFound)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text(kUserFullNameNotFound)));
         }
         return;
       }
 
       final userName = userData['full_name'] as String;
 
+      // Check if a join request already exists for this (club_id, student_id)
+      final existingReq = await supabase
+          .from(kJoinRequestsTable)
+          .select('id, status')
+          .eq('club_id', _currentClub!.id)
+          .eq('student_id', widget.currentStudentId)
+          .maybeSingle();
+
+      if (existingReq != null) {
+        final String status = existingReq['status'] as String;
+        if (status == kStatusPending) {
+          setState(() => _hasPendingRequest = true);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Join request is already pending.')),
+            );
+          }
+          await _checkPendingRequest();
+          await _checkMembership();
+          return;
+        } else if (status == kStatusApproved) {
+          // Already a member; reflect that in UI
+          setState(() => _isMemberOfClub = true);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('You are already a member of this club.'),
+              ),
+            );
+          }
+          await _checkMembership();
+          return;
+        } else if (status == kStatusDeclined) {
+          // Re-activate the same request instead of inserting a new row
+          await supabase
+              .from(kJoinRequestsTable)
+              .update({
+                'status': kStatusPending,
+                'request_date': DateTime.now().toIso8601String(),
+              })
+              .eq('id', existingReq['id']);
+
+          setState(() => _hasPendingRequest = true);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text(kJoinRequestSentSuccess)),
+            );
+          }
+          await _checkPendingRequest();
+          await _checkMembership();
+          return;
+        }
+      }
+
+      debugPrint(
+        'DEBUG: _sendJoinRequest - club_id: ${_currentClub!.id}, student_id: ${widget.currentStudentId}',
+      ); // DEBUG
+
       await supabase.from(kJoinRequestsTable).insert({
-        'club_id': widget.club.id,
-        'student_id': user.id,
+        'club_id': _currentClub!.id,
+        'student_id': widget.currentStudentId, // Use widget.currentStudentId
         'student_name': userName,
         'request_date': DateTime.now().toIso8601String(),
         'status': kStatusPending,
@@ -210,15 +388,31 @@ class _ClubProfilePageState extends State<ClubProfilePage>
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(kJoinRequestSentSuccess)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text(kJoinRequestSentSuccess)));
       }
+      await _checkMembership(); // Re-check membership status
+      await _checkPendingRequest(); // Re-check pending request status
     } catch (e) {
+      // Handle unique constraint violation gracefully (duplicate join request)
+      final String msg = e.toString();
+      if (msg.contains('duplicate key') || msg.contains('23505')) {
+        setState(() => _hasPendingRequest = true);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Join request already exists.')),
+          );
+        }
+        await _checkMembership();
+        await _checkPendingRequest();
+        return;
+      }
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$kErrorSendingJoinRequest $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$kErrorSendingJoinRequest $e')));
       }
       debugPrint('Error sending join request: $e');
     }
@@ -229,18 +423,24 @@ class _ClubProfilePageState extends State<ClubProfilePage>
       final user = supabase.auth.currentUser;
       if (user == null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text(kLoginRequiredMessage)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text(kLoginRequiredMessage)));
         }
         return;
       }
 
+      debugPrint(
+        'DEBUG: _cancelJoinRequest - club_id: ${_currentClub!.id}, student_id: ${widget.currentStudentId}',
+      ); // DEBUG
       await supabase
           .from(kJoinRequestsTable)
           .delete()
-          .eq('club_id', widget.club.id)
-          .eq('student_id', user.id)
+          .eq('club_id', _currentClub!.id)
+          .eq(
+            'student_id',
+            widget.currentStudentId,
+          ) // Use widget.currentStudentId
           .eq('status', kStatusPending);
 
       setState(() {
@@ -252,6 +452,8 @@ class _ClubProfilePageState extends State<ClubProfilePage>
           const SnackBar(content: Text(kJoinRequestCancelledSuccess)),
         );
       }
+      await _checkMembership(); // Re-check membership status
+      await _checkPendingRequest(); // Re-check pending request status
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -267,20 +469,24 @@ class _ClubProfilePageState extends State<ClubProfilePage>
       final response = await supabase
           .from(kActivitiesTable)
           .select('*')
-          .eq('club_id', widget.club.id)
+          .eq('club_id', _currentClub!.id)
           .order('created_at', ascending: true);
       setState(() {
-        _activities = response.map((data) => Activity(
-              id: data['id'] as String,
-              title: data['title'] as String,
-              description: data['description'] as String,
-            )).toList();
+        _activities = response
+            .map(
+              (data) => Activity(
+                id: data['id'] as String,
+                title: data['title'] as String,
+                description: data['description'] as String,
+              ),
+            )
+            .toList();
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$kErrorFetchingActivities $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$kErrorFetchingActivities $e')));
       }
       debugPrint('Error fetching activities: $e');
     }
@@ -291,14 +497,18 @@ class _ClubProfilePageState extends State<ClubProfilePage>
       final response = await supabase
           .from(kAchievementsTable)
           .select('*')
-          .eq('club_id', widget.club.id)
+          .eq('club_id', _currentClub!.id)
           .order('year', ascending: true);
       setState(() {
-        _achievements = response.map((data) => Achievement(
-              id: data['id'] as String,
-              year: data['year'] as String,
-              description: data['description'] as String,
-            )).toList();
+        _achievements = response
+            .map(
+              (data) => Achievement(
+                id: data['id'] as String,
+                year: data['year'] as String,
+                description: data['description'] as String,
+              ),
+            )
+            .toList();
       });
     } catch (e) {
       if (mounted) {
@@ -318,6 +528,9 @@ class _ClubProfilePageState extends State<ClubProfilePage>
 
   @override
   Widget build(BuildContext context) {
+    debugPrint(
+      'DEBUG: Building ClubProfilePage - _isMemberOfClub: $_isMemberOfClub, _hasPendingRequest: $_hasPendingRequest',
+    ); // DEBUG
     return Scaffold(
       body: Column(
         children: [
@@ -331,7 +544,7 @@ class _ClubProfilePageState extends State<ClubProfilePage>
               children: [
                 // Club name
                 Text(
-                  widget.club.name,
+                  _currentClub!.name,
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -342,7 +555,7 @@ class _ClubProfilePageState extends State<ClubProfilePage>
                 const SizedBox(height: 8),
                 // Club description
                 Text(
-                  widget.club.description,
+                  _currentClub!.description,
                   style: TextStyle(fontSize: 15, color: Colors.grey[700]),
                   textAlign: TextAlign.center,
                 ),
@@ -381,6 +594,7 @@ class _ClubProfilePageState extends State<ClubProfilePage>
   }
 
   Widget _buildCoverAndProfile() {
+    // debugPrint('Rendering buttons: _isCurrentUserStudent: $_isCurrentUserStudent, _isMemberOfClub: $_isMemberOfClub, _hasPendingRequest: $_hasPendingRequest'); // Debug print moved here
     return Stack(
       clipBehavior: Clip.none,
       alignment: Alignment.bottomCenter,
@@ -391,7 +605,7 @@ class _ClubProfilePageState extends State<ClubProfilePage>
           width: double.infinity,
           decoration: BoxDecoration(
             image: DecorationImage(
-              image: AssetImage(widget.club.coverImagePath),
+              image: AssetImage(_currentClub!.coverImagePath),
               fit: BoxFit.cover,
             ),
           ),
@@ -437,21 +651,47 @@ class _ClubProfilePageState extends State<ClubProfilePage>
                 ),
               ),
               actions: [
-                if (_isCurrentUserInstructor && _isMemberOfClub) // Only show edit button to instructor who is a member
+                // debugPrint('Rendering buttons: _isCurrentUserStudent: $_isCurrentUserStudent, _isMemberOfClub: $_isMemberOfClub, _hasPendingRequest: $_hasPendingRequest'); // Debug print (moved)
+                if (_isCurrentUserInstructor &&
+                    _currentClub!.isExecutiveOrAdvisorMember(
+                      widget.currentStudentId,
+                    )) // Only show edit button to instructor who is an executive or advisor member
                   IconButton(
                     icon: const Icon(Icons.edit, color: kWhiteColor),
                     onPressed: _editClubProfile,
                   ),
-                if (_isCurrentUserStudent && !_isMemberOfClub) // Only show join/cancel for students who are not members
+                if (_isCurrentUserStudent) // Logic for student actions (Join/Leave/Cancel Request)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: _hasPendingRequest
+                    child: _isMemberOfClub
+                        ? ElevatedButton(
+                            onPressed: _leaveClub, // New: Leave Club button
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: kRedColor,
+                              foregroundColor: kWhiteColor,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: const Text(
+                              kLeaveGroupText,
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          )
+                        : _hasPendingRequest
                         ? ElevatedButton(
                             onPressed: _cancelJoinRequest,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: kRedColor,
                               foregroundColor: kWhiteColor,
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
@@ -466,9 +706,14 @@ class _ClubProfilePageState extends State<ClubProfilePage>
                             style: ElevatedButton.styleFrom(
                               backgroundColor: kPrimaryColor, // Maroon color
                               foregroundColor: kWhiteColor, // Text color
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8), // Rounded corners
+                                borderRadius: BorderRadius.circular(
+                                  8,
+                                ), // Rounded corners
                               ),
                             ),
                             child: const Text(
@@ -503,7 +748,7 @@ class _ClubProfilePageState extends State<ClubProfilePage>
             ),
             child: CircleAvatar(
               radius: 50, // Smaller radius
-              backgroundImage: AssetImage(widget.club.profileImagePath),
+              backgroundImage: AssetImage(_currentClub!.profileImagePath),
               backgroundColor: Colors.grey[300],
             ),
           ),
@@ -512,11 +757,11 @@ class _ClubProfilePageState extends State<ClubProfilePage>
     );
   }
 
-  void _promoteMember(ClubMember member) {
+  void _promoteMember(ClubMember member) async {
+    ClubMember? updatedMember; // Declare here
     setState(() {
-      final int index = widget.club.members.indexOf(member);
+      final int index = _currentClub!.members.indexOf(member);
       if (index != -1) {
-        ClubMember updatedMember = member; // Create a mutable copy
         String? newRole;
         String? newPosition;
 
@@ -530,10 +775,41 @@ class _ClubProfilePageState extends State<ClubProfilePage>
 
         if (newRole != null) {
           updatedMember = member.copyWith(role: newRole, position: newPosition);
-          widget.club.members[index] = updatedMember;
+          _currentClub!.members[index] =
+              updatedMember!; // Use null assertion operator
         }
       }
     });
+
+    if (updatedMember == null) return; // Exit if no update happened
+
+    // Persist changes to the database
+    try {
+      await supabase
+          .from(kClubMembersTable)
+          .update({
+            'role': updatedMember!.role,
+            'position': updatedMember!.position,
+          })
+          .eq('student_id', member.studentId)
+          .eq('club_id', _currentClub!.id);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(kPromoteMemberSuccessMessage)),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$kErrorPromotingMember $e')));
+      }
+      debugPrint('Error promoting member: $e');
+    }
+    // Refresh the club members list to reflect changes in UI
+    // This will implicitly re-fetch the club data including updated members.
+    await _fetchInitialData();
   }
 
   Widget _buildClubProfileTab() {
@@ -573,9 +849,14 @@ class _ClubProfilePageState extends State<ClubProfilePage>
 
                   // Activities list
                   if (_activities.isEmpty)
-                    Text(kNoActivitiesFoundText, style: TextStyle(color: kGreyColor[600]))
+                    Text(
+                      kNoActivitiesFoundText,
+                      style: TextStyle(color: kGreyColor[600]),
+                    )
                   else
-                    ..._activities.map((activity) => _buildActivityItem(activity)),
+                    ..._activities.map(
+                      (activity) => _buildActivityItem(activity),
+                    ),
                 ],
               ),
             ),
@@ -612,9 +893,14 @@ class _ClubProfilePageState extends State<ClubProfilePage>
 
                   // Achievements list
                   if (_achievements.isEmpty)
-                    Text(kNoAchievementsFoundText, style: TextStyle(color: kGreyColor[600]))
+                    Text(
+                      kNoAchievementsFoundText,
+                      style: TextStyle(color: kGreyColor[600]),
+                    )
                   else
-                    ..._achievements.map((achievement) => _buildAchievementItem(achievement)),
+                    ..._achievements.map(
+                      (achievement) => _buildAchievementItem(achievement),
+                    ),
                 ],
               ),
             ),
@@ -685,7 +971,10 @@ class _ClubProfilePageState extends State<ClubProfilePage>
           Expanded(
             child: Padding(
               padding: const EdgeInsets.only(top: 4.0),
-              child: Text(achievement.description, style: const TextStyle(fontSize: 14)),
+              child: Text(
+                achievement.description,
+                style: const TextStyle(fontSize: 14),
+              ),
             ),
           ),
         ],
@@ -764,7 +1053,7 @@ class _ClubProfilePageState extends State<ClubProfilePage>
   }
 
   void _showMemberOptionsDialog(Map<String, String> memberMap) {
-    final member = widget.club.members.firstWhere(
+    final member = _currentClub!.members.firstWhere(
       (m) => m.name == memberMap['name'] && m.position == memberMap['position'],
     );
 
@@ -777,8 +1066,15 @@ class _ClubProfilePageState extends State<ClubProfilePage>
             SimpleDialogOption(
               onPressed: () {
                 Navigator.pop(context);
-                // TODO: Navigate to member profile page
-                print('View Profile for ${member.name}');
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ProfilePage(
+                      studentId: member.studentId,
+                      clubs: [_currentClub!],
+                    ),
+                  ),
+                );
               },
               child: const Row(
                 children: <Widget>[
@@ -791,7 +1087,8 @@ class _ClubProfilePageState extends State<ClubProfilePage>
               ),
             ),
             if (_isCurrentUserInstructor) ...[
-              if (member.role == kRoleGeneral || member.role == kRoleSubExecutive)
+              if (member.role == kRoleGeneral ||
+                  member.role == kRoleSubExecutive)
                 SimpleDialogOption(
                   onPressed: () {
                     Navigator.pop(context); // Close the dialog
@@ -811,7 +1108,8 @@ class _ClubProfilePageState extends State<ClubProfilePage>
                     ],
                   ),
                 ),
-              if (member.role == kRoleExecutive || member.role == kRoleSubExecutive)
+              if (member.role == kRoleExecutive ||
+                  member.role == kRoleSubExecutive)
                 SimpleDialogOption(
                   onPressed: () {
                     Navigator.pop(context); // Close the dialog
@@ -856,11 +1154,11 @@ class _ClubProfilePageState extends State<ClubProfilePage>
     );
   }
 
-  void _demoteMember(ClubMember member) {
+  void _demoteMember(ClubMember member) async {
+    ClubMember? updatedMember; // Declare here
     setState(() {
-      final int index = widget.club.members.indexOf(member);
+      final int index = _currentClub!.members.indexOf(member);
       if (index != -1) {
-        ClubMember updatedMember = member;
         String? newRole;
         String? newPosition;
 
@@ -874,15 +1172,45 @@ class _ClubProfilePageState extends State<ClubProfilePage>
 
         if (newRole != null) {
           updatedMember = member.copyWith(role: newRole, position: newPosition);
-          widget.club.members[index] = updatedMember;
+          _currentClub!.members[index] =
+              updatedMember!; // Use null assertion operator
         }
       }
     });
+
+    if (updatedMember == null) return; // Exit if no update happened
+
+    // Persist changes to the database
+    try {
+      await supabase
+          .from(kClubMembersTable)
+          .update({
+            'role': updatedMember!.role,
+            'position': updatedMember!.position,
+          })
+          .eq('student_id', member.studentId)
+          .eq('club_id', _currentClub!.id);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(kDemoteMemberSuccessMessage)),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$kErrorDemotingMember $e')));
+      }
+      debugPrint('Error demoting member: $e');
+    }
+    // Refresh the club members list to reflect changes in UI
+    await _fetchInitialData();
   }
 
   void _removeMember(ClubMember member) {
     setState(() {
-      widget.club.members.remove(member);
+      _currentClub!.members.remove(member);
     });
   }
 
@@ -1008,19 +1336,19 @@ class _ClubProfilePageState extends State<ClubProfilePage>
 
   Widget _buildClubMembersTab() {
     // Filter members by role
-    final advisorMembers = widget.club.members
+    final advisorMembers = _currentClub!.members
         .where((m) => m.isAdvisor)
         .toList();
-    final coAdvisorMembers = widget.club.members
+    final coAdvisorMembers = _currentClub!.members
         .where((m) => m.isCoAdvisor)
         .toList();
-    final executiveMembers = widget.club.members
+    final executiveMembers = _currentClub!.members
         .where((m) => m.role == kRoleExecutive)
         .toList();
-    final subExecutiveMembers = widget.club.members
+    final subExecutiveMembers = _currentClub!.members
         .where((m) => m.role == kRoleSubExecutive)
         .toList();
-    final generalMembers = widget.club.members
+    final generalMembers = _currentClub!.members
         .where((m) => m.role == kRoleGeneral)
         .toList();
 
@@ -1058,7 +1386,10 @@ class _ClubProfilePageState extends State<ClubProfilePage>
                     const Divider(),
                     const SizedBox(height: 8),
                     if (_pendingJoinRequests.isEmpty)
-                      Text(kNoPendingRequests, style: TextStyle(color: kGreyColor[600]))
+                      Text(
+                        kNoPendingRequests,
+                        style: TextStyle(color: kGreyColor[600]),
+                      )
                     else
                       ListView.builder(
                         shrinkWrap: true,
@@ -1071,20 +1402,38 @@ class _ClubProfilePageState extends State<ClubProfilePage>
                             child: ListTile(
                               leading: CircleAvatar(
                                 backgroundColor: kGreyColor[300],
-                                child: Text(request.studentName[0], style: const TextStyle(color: Colors.black)),
+                                child: Text(
+                                  request.studentName[0],
+                                  style: const TextStyle(color: Colors.black),
+                                ),
                               ),
-                              title: Text(request.studentName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                              subtitle: Text('Requested on ${request.requestDate.day}/${request.requestDate.month}/${request.requestDate.year}'),
+                              title: Text(
+                                request.studentName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              subtitle: Text(
+                                'Requested on ${request.requestDate.day}/${request.requestDate.month}/${request.requestDate.year}',
+                              ),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   IconButton(
-                                    icon: const Icon(Icons.check_circle, color: Colors.green),
-                                    onPressed: () => _approveJoinRequest(request),
+                                    icon: const Icon(
+                                      Icons.check_circle,
+                                      color: Colors.green,
+                                    ),
+                                    onPressed: () =>
+                                        _approveJoinRequest(request),
                                   ),
                                   IconButton(
-                                    icon: const Icon(Icons.cancel, color: kRedColor),
-                                    onPressed: () => _declineJoinRequest(request),
+                                    icon: const Icon(
+                                      Icons.cancel,
+                                      color: kRedColor,
+                                    ),
+                                    onPressed: () =>
+                                        _declineJoinRequest(request),
                                   ),
                                 ],
                               ),
@@ -1153,7 +1502,7 @@ class _ClubProfilePageState extends State<ClubProfilePage>
             ),
           ],
 
-          if (widget.club.members.isEmpty)
+          if (_currentClub!.members.isEmpty)
             Center(
               child: Column(
                 children: [
@@ -1184,9 +1533,10 @@ class _ClubProfilePageState extends State<ClubProfilePage>
       });
 
       // Update join_request status to approved
-      await supabase.from(kJoinRequestsTable).update({
-        'status': kStatusApproved,
-      }).eq('id', request.id);
+      await supabase
+          .from(kJoinRequestsTable)
+          .update({'status': kStatusApproved})
+          .eq('id', request.id);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1195,6 +1545,8 @@ class _ClubProfilePageState extends State<ClubProfilePage>
       }
       _fetchPendingJoinRequests(); // Refresh pending requests
       _checkMembership(); // Refresh membership status
+      await _checkPendingRequest(); // Explicitly re-check pending request status
+      await _fetchInitialData(); // Refresh all club data after approval
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1208,9 +1560,10 @@ class _ClubProfilePageState extends State<ClubProfilePage>
   Future<void> _declineJoinRequest(ClubJoinRequest request) async {
     try {
       // Update join_request status to declined (or delete the request)
-      await supabase.from(kJoinRequestsTable).update({
-        'status': kStatusDeclined,
-      }).eq('id', request.id);
+      await supabase
+          .from(kJoinRequestsTable)
+          .update({'status': kStatusDeclined})
+          .eq('id', request.id);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1218,6 +1571,9 @@ class _ClubProfilePageState extends State<ClubProfilePage>
         );
       }
       _fetchPendingJoinRequests(); // Refresh pending requests
+      await _checkMembership(); // Refresh membership status
+      await _checkPendingRequest(); // Re-check pending request status
+      await _fetchInitialData(); // Refresh all club data after decline
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1232,8 +1588,65 @@ class _ClubProfilePageState extends State<ClubProfilePage>
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => EditClubProfilePage(club: widget.club),
+        builder: (context) => EditClubProfilePage(club: _currentClub!),
       ),
     );
+  }
+
+  Future<void> _leaveClub() async {
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text(kLoginRequiredMessage)));
+        }
+        return;
+      }
+
+      // Remove the member from the club_members table
+      await supabase
+          .from(kClubMembersTable)
+          .delete()
+          .eq('club_id', _currentClub!.id)
+          .eq(
+            'student_id',
+            widget.currentStudentId,
+          ); // Use widget.currentStudentId
+
+      // Also remove any approved join request acting as membership
+      await supabase
+          .from(kJoinRequestsTable)
+          .delete()
+          .eq('club_id', _currentClub!.id)
+          .or(
+            'student_id.eq.${widget.currentStudentId},student_id.eq.${user.id}',
+          )
+          .eq('status', kStatusApproved);
+
+      setState(() {
+        _isMemberOfClub = false;
+        _currentClub!.members.removeWhere(
+          (member) => member.studentId == user.id,
+        ); // Remove from local list
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text(kLeaveClubSuccessMessage)));
+      }
+      await _checkMembership(); // Re-check membership status
+      await _checkPendingRequest(); // Re-check pending request status
+      await _fetchInitialData(); // Refresh all club data after leaving
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$kErrorLeavingClub $e')));
+      }
+      debugPrint('Error leaving club: $e');
+    }
   }
 }

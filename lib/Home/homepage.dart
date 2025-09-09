@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // Import Supabase
 import '../data/club_data.dart';
 import '../clubs/clubs_page.dart';
 import '../events/events_page.dart';
@@ -18,7 +19,9 @@ class _HomePageState extends State<HomePage> {
   bool _isLoading = true; // Add loading state
 
   // Sample student ID for testing
-  final String _currentStudentId = '2020001'; // Reverted to original student ID
+  String? _currentStudentId; // Make nullable
+  final SupabaseClient supabase =
+      Supabase.instance.client; // Initialize Supabase client
 
   // Initialize clubs list
   List<Club> _clubs = []; // Initialize as empty list
@@ -26,18 +29,48 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _fetchClubs(); // Call async function to fetch clubs
+    _fetchInitialData(); // Call a new async function to fetch all initial data
   }
 
-  Future<void> _fetchClubs() async {
+  Future<void> _fetchInitialData() async {
     try {
-      final fetchedClubs = getClubs();
+      final user = supabase.auth.currentUser;
+      if (user != null) {
+        try {
+          final resp = await supabase
+              .from('users')
+              .select('student_id')
+              .eq('id', user.id)
+              .maybeSingle();
+          final meta = user.userMetadata;
+          final String? metaStudentId = meta != null
+              ? meta['student_id'] as String?
+              : null;
+          final String? dbStudentId = resp != null
+              ? resp['student_id'] as String?
+              : null;
+
+          _currentStudentId = (dbStudentId != null && dbStudentId.isNotEmpty)
+              ? dbStudentId
+              : (metaStudentId != null && metaStudentId.isNotEmpty
+                    ? metaStudentId
+                    : user.id);
+        } catch (e) {
+          print('Error fetching student_id for current user: $e');
+          _currentStudentId = user.id;
+        }
+      } else {
+        print('User not logged in on Homepage.');
+        // Potentially navigate to login screen if no user is found
+      }
+
+      final fetchedClubs = await getClubs();
       setState(() {
         _clubs = fetchedClubs;
         _isLoading = false; // Set loading to false after clubs are fetched
       });
     } catch (e) {
-      print('Error fetching clubs in homepage: $e');
+      print('Error fetching initial data in homepage: $e');
       setState(() {
         _isLoading = false; // Also set to false on error
       });
@@ -46,19 +79,22 @@ class _HomePageState extends State<HomePage> {
 
   // Get the current screen based on selected index
   Widget _getScreenForIndex(int index) {
+    if (_currentStudentId == null) {
+      return const Center(child: Text('Please log in to view this content.'));
+    }
     switch (index) {
       case 0: // Home (Posts)
-        return PostsPage(studentId: _currentStudentId, clubs: _clubs);
+        return PostsPage(studentId: _currentStudentId!, clubs: _clubs);
       case 1: // All Clubs
-        return ClubsPage(studentId: _currentStudentId, clubs: _clubs);
+        return ClubsPage(studentId: _currentStudentId!, clubs: _clubs);
       case 2: // Create Post
-        return CreatePostPage(studentId: _currentStudentId, clubs: _clubs);
+        return CreatePostPage(studentId: _currentStudentId!, clubs: _clubs);
       case 3: // Events
-        return EventsPage(clubs: _clubs, studentId: _currentStudentId);
+        return EventsPage(clubs: _clubs, studentId: _currentStudentId!);
       case 4: // Profile
-        return ProfilePage(studentId: _currentStudentId, clubs: _clubs);
+        return ProfilePage(studentId: _currentStudentId!, clubs: _clubs);
       default:
-        return PostsPage(studentId: _currentStudentId, clubs: _clubs);
+        return PostsPage(studentId: _currentStudentId!, clubs: _clubs);
     }
   }
 

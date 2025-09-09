@@ -1,28 +1,21 @@
-import 'package:clubsync/redirect_page.dart';
 import 'package:flutter/material.dart';
-import 'package:clubsync/auth/login_screen.dart';
-import 'package:clubsync/auth/signup_screen.dart';
-import 'package:clubsync/auth/forgot_password_screen.dart';
-import 'package:clubsync/Home/homepage.dart';
-import 'package:clubsync/clubs/club_profile_page.dart';
-import 'package:clubsync/events/events_page.dart';
-import 'package:clubsync/profile/profile_page.dart';
-import 'package:clubsync/data/club_data.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-// Import the new redirect page
+import 'auth/login_screen.dart';
+import 'auth/signup_screen.dart';
+import 'auth/forgot_password_screen.dart';
+import 'Home/homepage.dart'; // Keep capitalization consistent with directory structure
+import 'clubs/club_profile_page.dart';
+import 'events/events_page.dart';
+import 'profile/profile_page.dart';
+import 'data/club_data.dart';
 
-Future<void> main() async {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   await Supabase.initialize(
-    url: 'https://hplrrhjfixehckloofdn.supabase.co',
+    url: 'https://wddjfzeuirfhrtxemlha.supabase.co',
     anonKey:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhwbHJyaGpmaXhlaGNrbG9vZmRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcwMDUwNDMsImV4cCI6MjA3MjU4MTA0M30.d_U1zQlto4Cktje0JFTAz3kkC5ArqV1LrYz7FcVDCh4',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkZGpmemV1aXJmaHJ0eGVtbGhhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcxNzg2MTEsImV4cCI6MjA3Mjc1NDYxMX0.6fdXIO623vVpWFWdh7XUYlaF6-4uAcifhl13BhUmL3A',
   );
-
-  // Remove this print statement after verifying connection
-  // print('Supabase client initialized: ${Supabase.instance.client}');
-
   runApp(const MyApp());
 }
 
@@ -39,9 +32,13 @@ class MyApp extends StatelessWidget {
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
       routes: {
-        '/': (context) =>
-            const RedirectPage(), // Use RedirectPage as the initial route
-        '/login': (context) => const LoginScreen(),
+        '/': (context) => const LoginScreen(),
+        '/login': (context) {
+          final args =
+              ModalRoute.of(context)?.settings.arguments
+                  as Map<String, dynamic>?;
+          return LoginScreen(userProfileData: args);
+        },
         '/signup': (context) => const SignupScreen(),
         '/forgot-password': (context) => ForgotPasswordScreen(),
         '/home': (context) => const HomePage(),

@@ -45,8 +45,11 @@ class _ClubsPageState extends State<ClubsPage> {
     filteredClubs = List.from(clubs);
 
     setState(() {
-      _isLoading = false; // Set loading to false after role is fetched and clubs initialized
-      debugPrint('ClubsPage: _isLoading set to false, _isCurrentUserInstructor: $_isCurrentUserInstructor');
+      _isLoading =
+          false; // Set loading to false after role is fetched and clubs initialized
+      debugPrint(
+        'ClubsPage: _isLoading set to false, _isCurrentUserInstructor: $_isCurrentUserInstructor',
+      );
     });
   }
 
@@ -98,16 +101,22 @@ class _ClubsPageState extends State<ClubsPage> {
             .from('users')
             .select('role')
             .eq('id', user.id)
-            .single();
-        if (response.isNotEmpty) {
+            .maybeSingle(); // Changed .single() to .maybeSingle()
+
+        if (response != null && response.isNotEmpty) {
           final userRole = response['role'];
           debugPrint('ClubsPage: Fetched user role: $userRole');
           setState(() {
-            _isCurrentUserInstructor = userRole == 'Instructor'; // Corrected to 'Instructor'
-            debugPrint('ClubsPage: _isCurrentUserInstructor set to: $_isCurrentUserInstructor');
+            _isCurrentUserInstructor =
+                userRole == 'Instructor'; // Corrected to 'Instructor'
+            debugPrint(
+              'ClubsPage: _isCurrentUserInstructor set to: $_isCurrentUserInstructor',
+            );
           });
         } else {
-          debugPrint('ClubsPage: User role not found in database for user: ${user.id}');
+          debugPrint(
+            'ClubsPage: User role not found in database for user: ${user.id}',
+          );
           setState(() {
             _isCurrentUserInstructor = false;
           });
@@ -133,7 +142,9 @@ class _ClubsPageState extends State<ClubsPage> {
 
   @override
   Widget build(BuildContext context) {
-    debugPrint('ClubsPage: build method called, _isLoading: $_isLoading, _isCurrentUserInstructor: $_isCurrentUserInstructor');
+    debugPrint(
+      'ClubsPage: build method called, _isLoading: $_isLoading, _isCurrentUserInstructor: $_isCurrentUserInstructor',
+    );
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -190,33 +201,64 @@ class _ClubsPageState extends State<ClubsPage> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                // Show my clubs only button
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        _showMyClubsOnly = !_showMyClubsOnly;
-                        _filterClubs(); // Apply the filter
-                      });
-                    },
-                    icon: Icon(
-                      _showMyClubsOnly
-                          ? Icons.check_box
-                          : Icons.check_box_outline_blank,
-                      color: Colors.white,
-                    ),
-                    label: Text(
-                      'Show my clubs only',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF6a0e33),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                // Show my clubs only and Add a club (instructors only)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Show my clubs only button (left)
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _showMyClubsOnly = !_showMyClubsOnly;
+                          _filterClubs(); // Apply the filter
+                        });
+                      },
+                      icon: Icon(
+                        _showMyClubsOnly
+                            ? Icons.check_box
+                            : Icons.check_box_outline_blank,
+                        color: Colors.white,
+                      ),
+                      label: const Text(
+                        'Show my clubs only',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF6a0e33),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                     ),
-                  ),
+
+                    // Add a club button (right, only visible for instructors)
+                    if (_isCurrentUserInstructor)
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const CreateClubPage(),
+                            ),
+                          );
+
+                          if (result == true) {
+                            await _initializePage();
+                          }
+                        },
+                        icon: const Icon(Icons.add, color: Colors.white),
+                        label: const Text(
+                          'Add a club',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF6a0e33),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ),
@@ -226,40 +268,22 @@ class _ClubsPageState extends State<ClubsPage> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : filteredClubs.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No clubs found',
-                          style: TextStyle(fontSize: 16),
-                        ),
-                      )
-                    : ListView.builder(
-                        itemCount: filteredClubs.length,
-                        itemBuilder: (context, index) {
-                          return _buildClubCard(filteredClubs[index]);
-                        },
-                      ),
+                ? const Center(
+                    child: Text(
+                      'No clubs found',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: filteredClubs.length,
+                    itemBuilder: (context, index) {
+                      return _buildClubCard(filteredClubs[index]);
+                    },
+                  ),
           ),
         ],
       ),
-      floatingActionButton: _isCurrentUserInstructor
-          ? FloatingActionButton(
-              onPressed: () async { // Make onPressed async
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const CreateClubPage(),
-                  ),
-                ); // Await the result
-
-                if (result == true) {
-                  // If a club was successfully created, refresh the list
-                  await _initializePage();
-                }
-              },
-              backgroundColor: const Color(0xFF6a0e33),
-              child: const Icon(Icons.add, color: Colors.white),
-            )
-          : null,
+      floatingActionButton: null,
     );
   }
 
@@ -358,6 +382,47 @@ class _ClubsPageState extends State<ClubsPage> {
                   ),
                   child: const Text('View Club'),
                 ),
+                // Show message for joined members
+                club.members.any(
+                      (member) => member.studentId == widget.studentId,
+                    )
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.green.withOpacity(0.3),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.check_circle,
+                                color: Colors.green[700],
+                                size: 16,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'You are already in this club',
+                                style: TextStyle(
+                                  color: Colors.green[800],
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
               ],
             ),
           ),

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../models/post.dart';
 import '../data/club_data.dart';
 import 'dart:io';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'create_post_page.dart';
 
 class PostsPage extends StatefulWidget {
   final String studentId;
@@ -14,39 +16,96 @@ class PostsPage extends StatefulWidget {
 }
 
 class _PostsPageState extends State<PostsPage> {
-  final List<Post> _posts = [
-    // Sample posts
-    Post(
-      id: '1',
-      clubName: 'Computer Club',
-      clubProfilePictureUrl: 'assets/images/computer.svg',
-      caption: 'Join us for our annual hackathon on October 26th! Great prizes and learning opportunities.',
-      title: 'Hackathon Announcement',
-      content: 'Join us for our annual hackathon on October 26th! Great prizes and learning opportunities.',
-      timestamp: DateTime.now().subtract(const Duration(hours: 2)),
-      imageUrl: 'assets/images/flutter_01.png',
-    ),
-    Post(
-      id: '2',
-      clubName: 'Art Club',
-      clubProfilePictureUrl: 'assets/images/art.svg',
-      caption: 'Our annual art exhibition is happening next week. Come and see amazing artworks by our talented members.',
-      title: 'Art Exhibition!',
-      content: 'Our annual art exhibition is happening next week. Come and see amazing artworks by our talented members.',
-      timestamp: DateTime.now().subtract(const Duration(days: 1)),
-      imageUrl: 'assets/images/flutter_02.png',
-    ),
-    Post(
-      id: '3',
-      clubName: 'Literary Club',
-      clubProfilePictureUrl: 'assets/images/literary.svg',
-      caption: 'Express yourself at our open mic poetry slam night. All are welcome!',
-      title: 'Poetry Slam Night',
-      content: 'Express yourself at our open mic poetry slam night. All are welcome!',
-      timestamp: DateTime.now().subtract(const Duration(days: 3)),
-      imageUrl: 'assets/images/flutter_03.png',
-    ),
-  ];
+  final SupabaseClient supabase = Supabase.instance.client;
+  final List<Post> _posts = [];
+  bool _isLoading = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPosts();
+  }
+
+  Future<void> _fetchPosts() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    // Compute the set of club IDs that the current user has joined
+    final Set<String> joinedClubIds = widget.clubs
+        .where((c) => c.members.any((m) => m.studentId == widget.studentId))
+        .map((c) => c.id)
+        .toSet();
+
+    try {
+      final response = await supabase
+          .from('posts')
+          .select()
+          .order('created_at', ascending: false);
+
+      final List<Post> posts = [];
+
+      for (final row in response as List) {
+        final String? clubId = row['club_id']?.toString();
+        // Skip posts that are not from clubs the user has joined
+        if (clubId == null || !joinedClubIds.contains(clubId)) {
+          continue;
+        }
+
+        Club? club;
+        try {
+          club = widget.clubs.firstWhere((c) => c.id == clubId);
+        } catch (_) {
+          club = null;
+        }
+
+        final String? createdAtRaw = row['created_at']?.toString();
+        DateTime ts;
+        try {
+          ts = createdAtRaw != null
+              ? DateTime.parse(createdAtRaw)
+              : DateTime.now();
+        } catch (_) {
+          ts = DateTime.now();
+        }
+
+        posts.add(
+          Post(
+            id: row['id'].toString(),
+            clubName: club?.name ?? 'Unknown Club',
+            title: (row['title'] ?? '').toString(),
+            content: (row['caption'] ?? '').toString(),
+            clubProfilePictureUrl:
+                club?.profileImagePath ?? 'assets/images/computer.svg',
+            caption: (row['caption'] ?? '').toString(),
+            imageUrl: row['image_url'] as String?,
+            likesCount: row['likes_count'] is int
+                ? row['likes_count'] as int
+                : (int.tryParse((row['likes_count'] ?? '0').toString()) ?? 0),
+            commentsCount: row['comments_count'] is int
+                ? row['comments_count'] as int
+                : (int.tryParse((row['comments_count'] ?? '0').toString()) ??
+                    0),
+            timestamp: ts,
+          ),
+        );
+      }
+
+      setState(() {
+        _posts
+          ..clear()
+          ..addAll(posts);
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -73,27 +132,42 @@ class _PostsPageState extends State<PostsPage> {
                 );
               },
               child: CircleAvatar(
-                backgroundImage: AssetImage('assets/images/sunset.svg'), // Placeholder image
+                backgroundImage: AssetImage(
+                  'assets/images/sunset.svg',
+                ), // Placeholder image
                 radius: 20,
               ),
             ),
           ),
         ],
       ),
-      body: _posts.isEmpty
-          ? const Center(
-              child: Text('No posts yet.'),
-            )
-          : ListView.builder(
-              itemCount: _posts.length,
-              itemBuilder: (context, index) {
-                final post = _posts[index];
-                return _buildPostCard(post);
-              },
-            ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : (_error != null
+              ? Center(child: Text('Error fetching posts: \n\n$_error'))
+              : (_posts.isEmpty
+                  ? const Center(child: Text('No posts yet.'))
+                  : ListView.builder(
+                      itemCount: _posts.length,
+                      itemBuilder: (context, index) {
+                        final post = _posts[index];
+                        return _buildPostCard(post);
+                      },
+                    ))),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.pushNamed(context, '/create_post');
+        onPressed: () async {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => CreatePostPage(
+                studentId: widget.studentId,
+                clubs: widget.clubs,
+              ),
+            ),
+          );
+          if (result == true) {
+            _fetchPosts();
+          }
         },
         child: const Icon(Icons.add),
       ),
@@ -122,7 +196,10 @@ class _PostsPageState extends State<PostsPage> {
                   children: [
                     Text(
                       post.clubName,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
                     ),
                     Text(
                       '${post.timestamp.day}/${post.timestamp.month}/${post.timestamp.year} ${post.timestamp.hour}:${post.timestamp.minute}',
@@ -138,10 +215,7 @@ class _PostsPageState extends State<PostsPage> {
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 5),
-            Text(
-              post.content,
-              style: const TextStyle(fontSize: 14),
-            ),
+            Text(post.content, style: const TextStyle(fontSize: 14)),
             if (post.imageUrl != null)
               Column(
                 children: [
@@ -158,14 +232,22 @@ class _PostsPageState extends State<PostsPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildActionItem(Icons.thumb_up, '${post.likesCount} Likes', () {
-                  // Handle like action
-                  print('Liked post ${post.id}');
-                }),
-                _buildActionItem(Icons.comment, '${post.commentsCount} Comments', () {
-                  // Handle comment action
-                  print('Commented on post ${post.id}');
-                }),
+                _buildActionItem(
+                  Icons.thumb_up,
+                  '${post.likesCount} Likes',
+                  () {
+                    // Handle like action
+                    print('Liked post ${post.id}');
+                  },
+                ),
+                _buildActionItem(
+                  Icons.comment,
+                  '${post.commentsCount} Comments',
+                  () {
+                    // Handle comment action
+                    print('Commented on post ${post.id}');
+                  },
+                ),
               ],
             ),
           ],
@@ -187,4 +269,3 @@ class _PostsPageState extends State<PostsPage> {
     );
   }
 }
-

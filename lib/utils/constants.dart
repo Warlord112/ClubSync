@@ -55,8 +55,17 @@ const String kPromoteToExecutiveText = 'Promote to Executive';
 const String kDemoteToSubExecutiveText = 'Demote to Sub-Executive';
 const String kDemoteToGeneralMemberText = 'Demote to General Member';
 const String kRemoveMemberText = 'Remove Member';
+const String kPromoteMemberSuccessMessage =
+    'Member promoted successfully!'; // New: Success message for promotion
+const String kErrorPromotingMember =
+    'Error promoting member:'; // New: Error message for promotion
+const String kDemoteMemberSuccessMessage =
+    'Member demoted successfully!'; // New: Success message for demotion
+const String kErrorDemotingMember =
+    'Error demoting member:'; // New: Error message for demotion
 const String kCreateNewClubTitle = 'Create New Club';
-const String kClubCreatedSuccessMessage = 'Club created successfully and you are now its Advisor!';
+const String kClubCreatedSuccessMessage =
+    'Club created successfully and you are now its Advisor!';
 const String kErrorCreatingClub = 'Error creating club:';
 const String kClubNameLabel = 'Club Name';
 const String kClubDescriptionLabel = 'Club Description';
@@ -84,19 +93,29 @@ const String kStatusApproved = 'approved';
 const String kStatusDeclined = 'declined';
 const String kJoinClubText = 'Join Club';
 const String kCancelRequestText = 'Cancel Request';
-const String kLoginRequiredMessage = 'You need to be logged in to send a join request.';
-const String kUserFullNameNotFound = 'Could not retrieve your full name. Please ensure your profile is complete.';
+const String kLoginRequiredMessage =
+    'You need to be logged in to send a join request.';
+const String kUserFullNameNotFound =
+    'Could not retrieve your full name. Please ensure your profile is complete.';
 const String kJoinRequestSentSuccess = 'Join request sent successfully!';
 const String kErrorSendingJoinRequest = 'Error sending join request:';
-const String kJoinRequestCancelledSuccess = 'Join request cancelled successfully!';
+const String kJoinRequestCancelledSuccess =
+    'Join request cancelled successfully!';
 const String kErrorCancellingJoinRequest = 'Error cancelling join request:';
+const String kLeaveGroupText =
+    'Leave Club'; // Updated: Text for leave club button
+const String kLeaveClubSuccessMessage =
+    'You have successfully left the club.'; // New: Success message for leaving club
+const String kErrorLeavingClub =
+    'Error leaving club:'; // New: Error message for leaving club
 
 // Join Request Instructor-side UI Strings
 const String kPendingJoinRequestsTitle = 'Pending Join Requests';
 const String kNoPendingRequests = 'No pending join requests.';
 const String kApproveButtonText = 'Approve';
 const String kDeclineButtonText = 'Decline';
-const String kJoinRequestApprovedSuccess = 'Join request approved. Member added to the club.';
+const String kJoinRequestApprovedSuccess =
+    'Join request approved. Member added to the club.';
 const String kJoinRequestDeclinedSuccess = 'Join request declined.';
 const String kErrorApprovingJoinRequest = 'Error approving join request:';
 const String kErrorDecliningJoinRequest = 'Error declining join request:';
@@ -113,14 +132,19 @@ const String kErrorUpdatingActivity = 'Error updating activity:';
 const String kActivityDeletedSuccessMessage = 'Activity deleted successfully!';
 const String kErrorDeletingActivity = 'Error deleting activity:';
 const String kErrorFetchingAchievements = 'Error fetching achievements:';
-const String kPleaseEnterAchievementDetails = 'Please enter both year and description for the achievement.';
-const String kAchievementAddedSuccessMessage = 'Achievement added successfully!';
+const String kPleaseEnterAchievementDetails =
+    'Please enter both year and description for the achievement.';
+const String kAchievementAddedSuccessMessage =
+    'Achievement added successfully!';
 const String kErrorAddingAchievement = 'Error adding achievement:';
-const String kAchievementUpdatedSuccessMessage = 'Achievement updated successfully!';
+const String kAchievementUpdatedSuccessMessage =
+    'Achievement updated successfully!';
 const String kErrorUpdatingAchievement = 'Error updating achievement:';
-const String kAchievementDeletedSuccessMessage = 'Achievement deleted successfully!';
+const String kAchievementDeletedSuccessMessage =
+    'Achievement deleted successfully!';
 const String kErrorDeletingAchievement = 'Error deleting achievement:';
-const String kClubProfileUpdatedSuccessMessage = 'Club profile updated successfully!';
+const String kClubProfileUpdatedSuccessMessage =
+    'Club profile updated successfully!';
 const String kErrorUpdatingClubProfile = 'Error updating club profile:';
 const String kAddActivityTitle = 'Add New Activity';
 const String kActivityTitleLabel = 'Activity Title';

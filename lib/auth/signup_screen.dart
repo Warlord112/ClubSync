@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // Import Supabase
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -14,30 +15,27 @@ class _SignupScreenState extends State<SignupScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  String? _selectedRole; // 'Student' or 'Moderator'
+  String? _selectedRole; // 'Student' or 'Instructor'
   final _departmentController = TextEditingController();
   String? _selectedField; // Re-added for student role
   String? _selectedSemester; // Re-added for student role
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
+  final SupabaseClient supabase =
+      Supabase.instance.client; // Initialize Supabase client
+
   final List<String> _fieldsOfStudy = [
-    'Computer Science',
-    'Electrical Engineering',
-    'Business Administration',
-    'Law',
-    'Medicine',
-    'Architecture',
+    'BSC in CSE',
+    'MA in CSE',
+    'BSC in EEE',
+    'BA in English',
+    'BSC in Economics',
+    'BSC in ETE',
+    'BSBA',
   ];
 
-  final List<String> _departments = [
-    'Computer Science and Engineering',
-    'Electrical and Electronic Engineering',
-    'Business Administration',
-    'Law',
-    'Pharmacy',
-    'English',
-  ];
+  final List<String> _departments = ['CSE', 'EEE', 'BBA', 'English'];
 
   final List<String> _semesters = [
     'Semester 1',
@@ -48,6 +46,10 @@ class _SignupScreenState extends State<SignupScreen> {
     'Semester 6',
     'Semester 7',
     'Semester 8',
+    'Semester 9',
+    'Semester 10',
+    'Semester 11',
+    'Semester 12',
   ];
 
   @override
@@ -119,7 +121,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     decoration: _buildInputDecoration('I am a'),
                     value: _selectedRole,
                     hint: const Text('Select your role'),
-                    items: <String>['Student', 'Moderator']
+                    items: <String>['Student', 'Instructor']
                         .map<DropdownMenuItem<String>>((String value) {
                           return DropdownMenuItem<String>(
                             value: value,
@@ -214,15 +216,15 @@ class _SignupScreenState extends State<SignupScreen> {
                           value == null ? 'Select semester' : null,
                     ),
                     const SizedBox(height: 16),
-                  ] else if (_selectedRole == 'Moderator') ...[
-                    // Moderator ID
+                  ] else if (_selectedRole == 'Instructor') ...[
+                    // Instructor ID
                     TextFormField(
                       controller:
                           _studentIdController, // Using same controller, just changing label
                       keyboardType: TextInputType.text,
-                      decoration: _buildInputDecoration('Moderator ID'),
+                      decoration: _buildInputDecoration('Instructor ID'),
                       validator: (value) =>
-                          value!.isEmpty ? 'Enter moderator ID' : null,
+                          value!.isEmpty ? 'Enter instructor ID' : null,
                     ),
                     const SizedBox(height: 16),
 
@@ -388,27 +390,140 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
-  void _submitForm() {
+  void _submitForm() async {
+    // Make _submitForm async
     if (_formKey.currentState!.validate()) {
-      // Form is valid - proceed with signup
-      final userData = {
-        'name': _fullNameController.text,
-        'role': _selectedRole,
-        'email': _emailController.text,
-      };
+      debugPrint('SignupScreen: Form is valid. Attempting signup...');
+      try {
+        // 1. Sign up the user with email and password in Supabase Auth
+        debugPrint(
+          'SignupScreen: Calling supabase.auth.signUp for email: ${_emailController.text.trim()}',
+        );
 
-      if (_selectedRole == 'Student') {
-        userData['studentId'] = _studentIdController.text;
-        userData['field'] = _selectedField;
-        userData['semester'] = _selectedSemester;
-      } else if (_selectedRole == 'Instructor') {
-        userData['instructorId'] =
-            _studentIdController.text; // Using same controller
-        userData['department'] = _departmentController.text;
+        // Build full metadata so we can reconstruct user profile after email verification
+        final Map<String, dynamic> metadata = {
+          'full_name': _fullNameController.text.trim(),
+          'role': _selectedRole,
+        };
+        if (_selectedRole == 'Student') {
+          metadata['student_id'] = _studentIdController.text.trim();
+          metadata['field_of_study'] = _selectedField;
+          metadata['semester'] = _selectedSemester;
+        } else if (_selectedRole == 'Instructor') {
+          metadata['instructor_id'] = _studentIdController.text.trim();
+          metadata['department'] = _departmentController.text.trim();
+        }
+
+        final AuthResponse response = await supabase.auth.signUp(
+          email: _emailController.text.trim(),
+          password: _passwordController.text.trim(),
+          data: metadata,
+        );
+        debugPrint(
+          'SignupScreen: Supabase signUp response received. User: ${response.user?.id}, Error: ${response.session?.isExpired == true
+              ? 'Session expired or invalid'
+              : response.session == null
+              ? 'No session'
+              : 'Session exists'}',
+        );
+
+        if (response.user != null) {
+          final String userId = response.user!.id;
+
+          // Build full user profile and write to public.users immediately
+          final Map<String, dynamic> userProfileData = {
+            'id': userId,
+            'full_name': _fullNameController.text.trim(),
+            'email': _emailController.text.trim(),
+            'role': _selectedRole,
+          };
+          if (_selectedRole == 'Student') {
+            userProfileData['student_id'] = _studentIdController.text.trim();
+            userProfileData['field_of_study'] = _selectedField;
+            userProfileData['semester'] = _selectedSemester;
+          } else if (_selectedRole == 'Instructor') {
+            userProfileData['instructor_id'] = _studentIdController.text.trim();
+            userProfileData['department'] = _departmentController.text.trim();
+          }
+
+          // Remove nulls to avoid overwriting with nulls
+          userProfileData.removeWhere((k, v) => v == null);
+
+          try {
+            // Use upsert to avoid duplicate key issues if the user retries
+            await supabase.from('users').upsert(userProfileData);
+            debugPrint(
+              'SignupScreen: User profile written to public.users: ${userProfileData.keys.toList()}',
+            );
+          } catch (e) {
+            debugPrint(
+              'SignupScreen: Error writing user profile to public.users: $e',
+            );
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Could not save profile to database: $e'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+            // Continue flow; user can still verify and log in.
+          }
+
+          debugPrint(
+            'SignupScreen: User created in auth.users. Instructing user to check email for verification.',
+          );
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Account created! Please check your email for verification before logging in.',
+                ),
+                backgroundColor: Colors.green,
+              ),
+            );
+            // Navigate to login page after successful signup, passing user profile data
+            Navigator.pushReplacementNamed(
+              context,
+              '/login',
+              arguments: userProfileData,
+            );
+          }
+        } else {
+          debugPrint(
+            'SignupScreen: Supabase signUp did not return a user. AuthResponse: $response',
+          );
+          // Handle cases where user is null (e.g., email already registered without confirmation)
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Account creation failed or email already registered. Please check your email for verification if you have already registered.',
+                ),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        }
+      } on AuthException catch (e) {
+        debugPrint('SignupScreen: AuthException caught: ${e.message}');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(e.message), backgroundColor: Colors.red),
+          );
+        }
+      } catch (e) {
+        debugPrint('SignupScreen: Unexpected error caught: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('An unexpected error occurred: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
-
-      print('User data: $userData');
-      Navigator.pushReplacementNamed(context, '/home');
     }
   }
 }

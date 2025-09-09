@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../utils/constants.dart';
 import '../data/club_data.dart';
 import 'event_detail_page.dart'; // Added import for EventDetailPage
+import 'create_event_page.dart'; // Use CreateEventPage for adding events
 
 class Event {
   final String id;
@@ -43,72 +46,80 @@ class EventsPage extends StatefulWidget {
 
 class _EventsPageState extends State<EventsPage> {
   List<Event> _events = [];
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _initializeEvents();
+    _fetchEvents();
   }
 
-  void _initializeEvents() {
-    // Sample events for demonstration
-    _events = [
-      Event(
-        id: '1',
-        clubId: 'Photography Club',
-        clubName: 'Photography Club',
-        title: 'Photography Workshop',
-        description: 'Learn the basics of photography and camera settings.',
-        date: DateTime.now().add(const Duration(days: 5)),
-        location: 'Room 101, Arts Building',
-        imagePath: 'assets/images/sunset.svg',
-        isUpcoming: true,
-        interestedCount: 150,
-        goingCount: 80,
-      ),
-      Event(
-        id: '2',
-        clubId: 'Art Club',
-        clubName: 'Art Club',
-        title: 'Watercolor Painting Session',
-        description: 'Join us for a relaxing watercolor painting session.',
-        date: DateTime.now().add(const Duration(days: 10)),
-        location: 'Art Studio, Main Campus',
-        imagePath: 'assets/images/art.svg',
-        isUpcoming: true,
-        interestedCount: 200,
-        goingCount: 120,
-      ),
-      Event(
-        id: '3',
-        clubId: 'Social Service Club',
-        clubName: 'Social Service Club',
-        title: 'Community Cleanup',
-        description: 'Help us clean up the local park and make our community better.',
-        date: DateTime.now().add(const Duration(days: 3)),
-        location: 'Central Park',
-        imagePath: 'assets/images/social_service.svg',
-        isUpcoming: true,
-        interestedCount: 300,
-        goingCount: 180,
-      ),
-      Event(
-        id: '4',
-        clubId: 'Photography Club',
-        clubName: 'Photography Club',
-        title: 'Photo Exhibition',
-        description: 'View the best photos taken by our club members.',
-        date: DateTime.now().subtract(const Duration(days: 15)),
-        location: 'Gallery Hall',
-        imagePath: 'assets/images/sunset.svg',
-        isUpcoming: false,
-        interestedCount: 50,
-        goingCount: 25,
-      ),
-    ];
+  Future<void> _fetchEvents() async {
+    setState(() => _isLoading = true);
+    try {
+      final supabase = Supabase.instance.client;
+      final List<dynamic> rows = await supabase
+          .from(kActivitiesTable)
+          .select('id, club_id, title, description, location, starting_date, ending_date')
+          .order('starting_date', ascending: true);
+
+      final now = DateTime.now();
+      final events = rows.map((row) {
+        final String id = row['id']?.toString() ?? '';
+        final String clubId = row['club_id']?.toString() ?? '';
+        final Club? club = (() {
+          try {
+            return widget.clubs.firstWhere((c) => c.id == clubId);
+          } catch (_) {
+            return null;
+          }
+        })();
+        final String clubName = club?.name ?? 'Unknown Club';
+        final String coverImage = club?.coverImagePath ?? kDefaultCoverImagePath;
+
+        DateTime? start;
+        DateTime? end;
+        if (row['starting_date'] != null && (row['starting_date'] as String).isNotEmpty) {
+          start = DateTime.tryParse(row['starting_date']);
+        }
+        if (row['ending_date'] != null && (row['ending_date'] as String).isNotEmpty) {
+          end = DateTime.tryParse(row['ending_date']);
+        }
+
+        final DateTime date = start ?? end ?? now;
+        final bool isUpcoming = end != null ? !end.isBefore(DateTime(now.year, now.month, now.day)) : (start != null ? !start.isBefore(DateTime(now.year, now.month, now.day)) : false);
+
+        return Event(
+          id: id,
+          clubId: clubId,
+          clubName: clubName,
+          title: (row['title'] ?? '').toString(),
+          description: (row['description'] ?? '').toString(),
+          date: date,
+          location: (row['location'] ?? '').toString(),
+          imagePath: coverImage,
+          isUpcoming: isUpcoming,
+          interestedCount: 0,
+          goingCount: 0,
+        );
+      }).toList();
+
+      setState(() {
+        _events = events;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load events: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
-  List<Event> get _upcomingEvents => _events.where((event) => event.isUpcoming).toList();
+  List<Event> get _upcomingEvents =>
+      _events.where((event) => event.isUpcoming).toList();
 
   @override
   Widget build(BuildContext context) {
@@ -123,49 +134,52 @@ class _EventsPageState extends State<EventsPage> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: InkWell(
-              onTap: () {
-                Navigator.pushNamed(
-                  context,
-                  '/profile',
-                  arguments: {
-                    'studentId': widget.studentId,
-                    'clubs': widget.clubs,
-                  },
+          IconButton(
+            icon: const Icon(Icons.add),
+            tooltip: 'Add Event',
+            onPressed: () async {
+              final created = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CreateEventPage(
+                    clubs: widget.clubs,
+                  ),
+                ),
+              );
+              if (created != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Event created.')),
                 );
-              },
-              child: CircleAvatar(
-                backgroundImage: AssetImage('assets/images/sunset.svg'), // Placeholder image
-                radius: 20,
-              ),
-            ),
+                await _fetchEvents();
+              }
+            },
           ),
         ],
       ),
-      body: _upcomingEvents.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.event_busy, size: 64, color: Colors.grey[400]),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No upcoming events',
-                    style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _upcomingEvents.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.event_busy, size: 64, color: Colors.grey[400]),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No upcoming events',
+                        style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _upcomingEvents.length,
-              itemBuilder: (context, index) {
-                final event = _upcomingEvents[index];
-                return _buildEventCard(event);
-              },
-            ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _upcomingEvents.length,
+                  itemBuilder: (context, index) {
+                    final event = _upcomingEvents[index];
+                    return _buildEventCard(event);
+                  },
+                ),
     );
   }
 
@@ -181,7 +195,9 @@ class _EventsPageState extends State<EventsPage> {
             height: 150,
             width: double.infinity,
             decoration: BoxDecoration(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
+              ),
               image: DecorationImage(
                 image: event.imagePath.startsWith('/')
                     ? FileImage(File(event.imagePath)) as ImageProvider
@@ -202,8 +218,10 @@ class _EventsPageState extends State<EventsPage> {
                     CircleAvatar(
                       backgroundImage: AssetImage(
                         widget.clubs
-                            .firstWhere((club) => club.name == event.clubName,
-                                orElse: () => widget.clubs.first)
+                            .firstWhere(
+                              (club) => club.name == event.clubName,
+                              orElse: () => widget.clubs.first,
+                            )
                             .profileImagePath,
                       ),
                       radius: 16,
@@ -230,7 +248,11 @@ class _EventsPageState extends State<EventsPage> {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    const Icon(Icons.location_on_outlined, size: 16, color: Colors.grey),
+                    const Icon(
+                      Icons.location_on_outlined,
+                      size: 16,
+                      color: Colors.grey,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       event.location,
@@ -267,18 +289,14 @@ class _EventsPageState extends State<EventsPage> {
 
   Widget _buildDateChip(DateTime date) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF6a0e33).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         '${date.day}/${date.month}/${date.year}',
-        style: const TextStyle(
-          color: Color(0xFF6a0e33),
-          fontWeight: FontWeight.bold,
-          fontSize: 12,
-        ),
+        style: const TextStyle(fontSize: 12),
       ),
     );
   }

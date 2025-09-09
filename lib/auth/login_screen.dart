@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // Import Supabase
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final Map<String, dynamic>? userProfileData;
+  const LoginScreen({super.key, this.userProfileData});
 
   @override
   _LoginScreenState createState() => _LoginScreenState();
@@ -15,7 +16,207 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   String? _selectedRole; // 'student' or 'instructor'
   final _formKey = GlobalKey<FormState>();
-  bool _isLoading = false; // Add loading state
+  final SupabaseClient supabase = Supabase.instance.client;
+
+  Future<void> _signIn() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    if (_selectedRole == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select your role.')),
+        );
+      }
+      return;
+    }
+
+    try {
+      final AuthResponse authResponse = await supabase.auth.signInWithPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
+
+      if (authResponse.user != null) {
+        print(
+          'LoginScreen: Auth successful for user ID: ${authResponse.user!.id}',
+        );
+
+        // Build user profile data from signup arguments or auth user metadata
+        final user = authResponse.user!;
+        final Map<String, dynamic>? meta = user.userMetadata;
+        final Map<String, dynamic> profileData = {
+          'id': user.id,
+          'email': user.email ?? _emailController.text.trim(),
+          'full_name':
+              (widget.userProfileData?['full_name']) ??
+              (meta != null ? meta['full_name'] : null),
+          'role':
+              (widget.userProfileData?['role']) ??
+              (meta != null ? meta['role'] : null) ??
+              _selectedRole,
+        };
+        final String? roleForProfile = profileData['role'] as String?;
+        if (roleForProfile == 'Student') {
+          profileData['student_id'] =
+              (widget.userProfileData?['student_id']) ??
+              (meta != null ? meta['student_id'] : null);
+          profileData['field_of_study'] =
+              (widget.userProfileData?['field_of_study']) ??
+              (meta != null ? meta['field_of_study'] : null);
+          profileData['semester'] =
+              (widget.userProfileData?['semester']) ??
+              (meta != null ? meta['semester'] : null);
+        } else if (roleForProfile == 'Instructor') {
+          profileData['instructor_id'] =
+              (widget.userProfileData?['instructor_id']) ??
+              (meta != null ? meta['instructor_id'] : null);
+          profileData['department'] =
+              (widget.userProfileData?['department']) ??
+              (meta != null ? meta['department'] : null);
+        }
+
+        // Remove nulls so we never overwrite existing values with null
+        final Map<String, dynamic> insertData = Map<String, dynamic>.from(
+          profileData,
+        )..removeWhere((key, value) => value == null);
+        final Map<String, dynamic> updateData = Map<String, dynamic>.from(
+          insertData,
+        )..remove('id');
+
+        // Check if user profile exists in public.users
+        final existingProfile = await supabase
+            .from('users')
+            .select('id')
+            .eq('id', user.id)
+            .maybeSingle();
+
+        if (existingProfile == null) {
+          print('LoginScreen: User profile not found, attempting to insert.');
+          try {
+            await supabase.from('users').insert(insertData);
+            print(
+              'LoginScreen: User profile inserted successfully with fields: ${insertData.keys.toList()}',
+            );
+          } catch (e) {
+            final msg = e.toString();
+            // If duplicate key due to race, ignore and continue
+            if (msg.contains('duplicate key') ||
+                msg.contains('already exists')) {
+              print(
+                'LoginScreen: Profile insert encountered duplicate; proceeding to update.',
+              );
+              if (updateData.isNotEmpty) {
+                await supabase
+                    .from('users')
+                    .update(updateData)
+                    .eq('id', user.id);
+                print(
+                  'LoginScreen: Profile updated after duplicate insert race.',
+                );
+              }
+            } else {
+              print('LoginScreen: Error inserting user profile: $e');
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error saving profile data: $e')),
+                );
+              }
+              // Do not block login if auth succeeded
+            }
+          }
+        } else {
+          print(
+            'LoginScreen: User profile already exists. Ensuring fields are up-to-date...',
+          );
+          if (updateData.isNotEmpty) {
+            try {
+              await supabase.from('users').update(updateData).eq('id', user.id);
+              print(
+                'LoginScreen: User profile updated with fields: ${updateData.keys.toList()}',
+              );
+            } catch (e) {
+              print('LoginScreen: Error updating user profile: $e');
+              // Continue login flow even if update fails
+            }
+          } else {
+            print('LoginScreen: No additional non-null fields to update.');
+          }
+        }
+
+        // Fetch role from users table; if not available, fall back to metadata
+        final response = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', user.id)
+            .maybeSingle();
+
+        print('LoginScreen: User role query response: $response');
+        String? userRole = (response != null && response.isNotEmpty)
+            ? response['role'] as String?
+            : (meta != null ? meta['role'] as String? : null);
+
+        // For backward compatibility, allow 'moderator' role to log in as 'Instructor'
+        if (userRole == 'moderator') {
+          userRole = 'Instructor';
+        }
+
+        if (userRole == null) {
+          await supabase.auth.signOut();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Login failed: User role not found in database.'),
+              ),
+            );
+          }
+          return;
+        }
+
+        if (userRole != _selectedRole) {
+          await supabase.auth.signOut(); // Log out the user if role mismatch
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Login failed: You are registered as $userRole, please select $userRole to login.',
+                ),
+              ),
+            );
+          }
+          return;
+        }
+
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/home');
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Login failed: Authentication response user is null.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+    } on AuthException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('An unexpected error occurred: $e')),
+        );
+      }
+    }
+  }
 
   void _signInWithGoogle() {
     // TODO: Implement Google sign-in
@@ -30,48 +231,6 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       return null; // Added to satisfy lint
     });
-  }
-
-  Future<void> _signIn() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-    setState(() {
-      _isLoading = true;
-    });
-    try {
-      await Supabase.instance.client.auth.signInWithPassword(
-        email: _emailController.text,
-        password: _passwordController.text,
-      );
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/home');
-      }
-    } on AuthException catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(error.message),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Unexpected error occurred'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
   }
 
   @override
@@ -160,7 +319,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     keyboardType: TextInputType.emailAddress,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
 
                   // Password Field
                   TextFormField(
@@ -190,7 +349,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
 
                   // Role Selection
                   DropdownButtonFormField<String>(
@@ -214,11 +373,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     },
                     items: <String>['Student', 'Instructor']
                         .map<DropdownMenuItem<String>>((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
+                          );
+                        })
+                        .toList(),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Please select your role';
@@ -226,7 +386,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
 
                   // Forgot Password
                   Align(
@@ -252,20 +412,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      onPressed: _isLoading ? null : _signIn,
-                      child: _isLoading
-                          ? const SizedBox(
-                              height: 24,
-                              width: 24,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : const Text(
-                              'Log In',
-                              style: TextStyle(color: Colors.white),
-                            ),
+                      onPressed: _signIn,
+                      child: const Text(
+                        'Log In',
+                        style: TextStyle(color: Colors.white),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
