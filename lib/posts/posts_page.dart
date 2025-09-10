@@ -4,6 +4,7 @@ import '../data/club_data.dart';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'create_post_page.dart';
+import '../utils/constants.dart';
 
 class PostsPage extends StatefulWidget {
   final String studentId;
@@ -20,11 +21,37 @@ class _PostsPageState extends State<PostsPage> {
   final List<Post> _posts = [];
   bool _isLoading = false;
   String? _error;
+  bool _isCurrentUserInstructor = false;
 
   @override
   void initState() {
     super.initState();
+    _fetchUserRole();
     _fetchPosts();
+  }
+
+  Future<void> _fetchUserRole() async {
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) {
+        if (mounted) setState(() => _isCurrentUserInstructor = false);
+        return;
+      }
+      final resp = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle();
+      final String? role = resp != null ? resp['role'] as String? : null;
+      if (mounted) {
+        setState(() {
+          _isCurrentUserInstructor =
+              role == 'Instructor' || role == kRoleInstructor;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isCurrentUserInstructor = false);
+    }
   }
 
   Future<void> _fetchPosts() async {
@@ -87,7 +114,7 @@ class _PostsPageState extends State<PostsPage> {
             commentsCount: row['comments_count'] is int
                 ? row['comments_count'] as int
                 : (int.tryParse((row['comments_count'] ?? '0').toString()) ??
-                    0),
+                      0),
             timestamp: ts,
           ),
         );
@@ -144,33 +171,35 @@ class _PostsPageState extends State<PostsPage> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : (_error != null
-              ? Center(child: Text('Error fetching posts: \n\n$_error'))
-              : (_posts.isEmpty
-                  ? const Center(child: Text('No posts yet.'))
-                  : ListView.builder(
-                      itemCount: _posts.length,
-                      itemBuilder: (context, index) {
-                        final post = _posts[index];
-                        return _buildPostCard(post);
-                      },
-                    ))),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => CreatePostPage(
-                studentId: widget.studentId,
-                clubs: widget.clubs,
-              ),
-            ),
-          );
-          if (result == true) {
-            _fetchPosts();
-          }
-        },
-        child: const Icon(Icons.add),
-      ),
+                ? Center(child: Text('Error fetching posts: \n\n$_error'))
+                : (_posts.isEmpty
+                      ? const Center(child: Text('No posts yet.'))
+                      : ListView.builder(
+                          itemCount: _posts.length,
+                          itemBuilder: (context, index) {
+                            final post = _posts[index];
+                            return _buildPostCard(post);
+                          },
+                        ))),
+      floatingActionButton: _isCurrentUserInstructor
+          ? FloatingActionButton(
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => CreatePostPage(
+                      studentId: widget.studentId,
+                      clubs: widget.clubs,
+                    ),
+                  ),
+                );
+                if (result == true) {
+                  _fetchPosts();
+                }
+              },
+              child: const Icon(Icons.add),
+            )
+          : null,
     );
   }
 

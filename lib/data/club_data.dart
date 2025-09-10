@@ -36,7 +36,8 @@ class ClubMember {
   bool get isSubExecutive => role == 'sub-executive';
   bool get isAdvisor => role == 'advisor';
   bool get isCoAdvisor => role == 'co-advisor';
-  bool get isGeneralMember => role == 'general'; // New: check for general member
+  bool get isGeneralMember =>
+      role == 'general'; // New: check for general member
 }
 
 class ClubJoinRequest {
@@ -64,11 +65,7 @@ class Activity {
   final String title;
   final String description;
 
-  Activity({
-    required this.id,
-    required this.title,
-    required this.description,
-  });
+  Activity({required this.id, required this.title, required this.description});
 }
 
 class Achievement {
@@ -104,10 +101,10 @@ class Club {
     List<Activity>? activities,
     List<Achievement>? achievements,
     required this.id, // Added id to constructor
-  })  : members = members ?? [],
-        joinRequests = joinRequests ?? [],
-        activities = activities ?? [],
-        achievements = achievements ?? [];
+  }) : members = members ?? [],
+       joinRequests = joinRequests ?? [],
+       activities = activities ?? [],
+       achievements = achievements ?? [];
 
   // Check if a student is an executive member of this club
   bool isExecutiveMember(String studentId) {
@@ -175,35 +172,45 @@ class Club {
 Future<List<Club>> getClubs() async {
   final SupabaseClient supabase = Supabase.instance.client;
   try {
-    final response = await supabase.from('clubs').select(
-        '*, club_members(*)' // Select all club fields and related club_members
-    );
+    final response = await supabase
+        .from('clubs')
+        .select(
+          '*, club_members(*)', // Select all club fields and related club_members
+        );
 
     final List<Club> clubs = [];
     for (var clubData in response as List) {
       final List<ClubMember> members = [];
       for (var memberData in clubData['club_members'] as List) {
-        members.add(ClubMember(
-          name: memberData['name'] as String,
-          position: memberData['position'] as String,
-          role: memberData['role'] as String,
-          profileImagePath: memberData['profile_image_path'] as String?,
-          studentId: memberData['student_id'] as String,
-        ));
+        members.add(
+          ClubMember(
+            name: memberData['name'] as String,
+            position: memberData['position'] as String,
+            role: memberData['role'] as String,
+            profileImagePath: memberData['profile_image_path'] as String?,
+            studentId: memberData['student_id'] as String,
+          ),
+        );
       }
 
-      clubs.add(Club(
-        id: clubData['id'] as String,
-        name: clubData['name'] as String,
-        description: clubData['description'] as String,
-        profileImagePath: clubData['profile_image_path'] as String? ?? 'assets/images/computer.svg', // Default image
-        coverImagePath: clubData['cover_image_path'] as String? ?? 'assets/images/sunset.svg', // Default image
-        members: members,
-        // Initialize other lists as empty for now
-        joinRequests: [],
-        activities: [],
-        achievements: [],
-      ));
+      clubs.add(
+        Club(
+          id: clubData['id'] as String,
+          name: clubData['name'] as String,
+          description: clubData['description'] as String,
+          profileImagePath:
+              clubData['profile_image_path'] as String? ??
+              'assets/images/computer.svg', // Default image
+          coverImagePath:
+              clubData['cover_image_path'] as String? ??
+              'assets/images/sunset.svg', // Default image
+          members: members,
+          // Initialize other lists as empty for now
+          joinRequests: [],
+          activities: [],
+          achievements: [],
+        ),
+      );
     }
     return clubs;
   } catch (e) {

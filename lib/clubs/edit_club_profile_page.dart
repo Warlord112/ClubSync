@@ -26,19 +26,25 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
 
   // For activities
   List<Map<String, dynamic>> _activities = [];
-  final TextEditingController _newActivityTitleController = TextEditingController();
-  final TextEditingController _newActivityDescriptionController = TextEditingController();
+  final TextEditingController _newActivityTitleController =
+      TextEditingController();
+  final TextEditingController _newActivityDescriptionController =
+      TextEditingController();
 
   // For achievements
   List<Map<String, dynamic>> _achievements = [];
-  final TextEditingController _newAchievementYearController = TextEditingController();
-  final TextEditingController _newAchievementDescriptionController = TextEditingController();
+  final TextEditingController _newAchievementYearController =
+      TextEditingController();
+  final TextEditingController _newAchievementDescriptionController =
+      TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _clubNameController = TextEditingController(text: widget.club.name);
-    _descriptionController = TextEditingController(text: widget.club.description);
+    _descriptionController = TextEditingController(
+      text: widget.club.description,
+    );
     _getUserIdAndCheckPermissions(); // Fetch user ID and check permissions
     _fetchActivities();
     _fetchAchievements();
@@ -58,17 +64,42 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
   Future<void> _getUserIdAndCheckPermissions() async {
     final user = supabase.auth.currentUser;
     if (user != null) {
-      final response = await supabase.from('users').select('student_id').eq('id', user.id).single();
+      final response = await supabase
+          .from('users')
+          .select('student_id, role')
+          .eq('id', user.id)
+          .single();
       final studentId = response['student_id'] as String;
+      final String? role = response['role'] as String?;
+      final bool isInstructor = role == kRoleInstructor;
+
+      // Check membership locally from provided club data
+      bool isMember = widget.club.members.any((m) => m.studentId == studentId);
+
+      // Fallback: verify membership from DB if not found locally
+      if (!isMember) {
+        try {
+          final membership = await supabase
+              .from(kClubMembersTable)
+              .select('student_id')
+              .eq('club_id', widget.club.id)
+              .eq('student_id', studentId)
+              .maybeSingle();
+          isMember = membership != null;
+        } catch (_) {
+          // Ignore fallback errors; will default to local result
+        }
+      }
+
       setState(() {
-        _canEdit = widget.club.isExecutiveOrAdvisorMember(studentId);
+        _canEdit = isInstructor; // Instructors can edit, regardless of membership
       });
     } else {
       // Handle case where user is not logged in, perhaps navigate to login
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('User not logged in.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('User not logged in.')));
       }
     }
   }
@@ -88,9 +119,9 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$kErrorFetchingActivities $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$kErrorFetchingActivities $e')));
       }
     } finally {
       setState(() {
@@ -112,11 +143,15 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
       _isLoading = true;
     });
     try {
-      final response = await supabase.from(kActivitiesTable).insert({
-        'club_id': widget.club.id,
-        'title': _newActivityTitleController.text.trim(),
-        'description': _newActivityDescriptionController.text.trim(),
-      }).select('*').single();
+      final response = await supabase
+          .from(kActivitiesTable)
+          .insert({
+            'club_id': widget.club.id,
+            'title': _newActivityTitleController.text.trim(),
+            'description': _newActivityDescriptionController.text.trim(),
+          })
+          .select('*')
+          .single();
 
       setState(() {
         _activities.add(response);
@@ -130,9 +165,9 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$kErrorAddingActivity $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$kErrorAddingActivity $e')));
       }
     } finally {
       setState(() {
@@ -141,16 +176,23 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
     }
   }
 
-  Future<void> _updateActivity(String activityId, String newTitle, String newDescription) async {
+  Future<void> _updateActivity(
+    String activityId,
+    String newTitle,
+    String newDescription,
+  ) async {
     setState(() {
       _isLoading = true;
     });
     try {
-      await supabase.from(kActivitiesTable).update({
-        'title': newTitle.trim(),
-        'description': newDescription.trim(),
-        'updated_at': DateTime.now().toIso8601String(),
-      }).eq('id', activityId);
+      await supabase
+          .from(kActivitiesTable)
+          .update({
+            'title': newTitle.trim(),
+            'description': newDescription.trim(),
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', activityId);
 
       await _fetchActivities(); // Refresh the list
       if (mounted) {
@@ -160,9 +202,9 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$kErrorUpdatingActivity $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$kErrorUpdatingActivity $e')));
       }
     } finally {
       setState(() {
@@ -171,9 +213,16 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
     }
   }
 
-  void _showEditActivityDialog(BuildContext context, Map<String, dynamic> activity) {
-    final TextEditingController titleController = TextEditingController(text: activity['title'] as String);
-    final TextEditingController descriptionController = TextEditingController(text: activity['description'] as String);
+  void _showEditActivityDialog(
+    BuildContext context,
+    Map<String, dynamic> activity,
+  ) {
+    final TextEditingController titleController = TextEditingController(
+      text: activity['title'] as String,
+    );
+    final TextEditingController descriptionController = TextEditingController(
+      text: activity['description'] as String,
+    );
 
     showDialog(
       context: context,
@@ -203,7 +252,11 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
             ElevatedButton(
               onPressed: () async {
                 Navigator.pop(context);
-                await _updateActivity(activity['id'] as String, titleController.text, descriptionController.text);
+                await _updateActivity(
+                  activity['id'] as String,
+                  titleController.text,
+                  descriptionController.text,
+                );
               },
               child: const Text(kUpdateActivityButtonText),
             ),
@@ -227,9 +280,9 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$kErrorDeletingActivity $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$kErrorDeletingActivity $e')));
       }
     } finally {
       setState(() {
@@ -265,7 +318,8 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
   }
 
   Future<void> _addAchievement() async {
-    if (_newAchievementYearController.text.trim().isEmpty || _newAchievementDescriptionController.text.trim().isEmpty) {
+    if (_newAchievementYearController.text.trim().isEmpty ||
+        _newAchievementDescriptionController.text.trim().isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text(kPleaseEnterAchievementDetails)),
@@ -277,11 +331,15 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
       _isLoading = true;
     });
     try {
-      final response = await supabase.from(kAchievementsTable).insert({
-        'club_id': widget.club.id,
-        'year': _newAchievementYearController.text.trim(),
-        'description': _newAchievementDescriptionController.text.trim(),
-      }).select('*').single();
+      final response = await supabase
+          .from(kAchievementsTable)
+          .insert({
+            'club_id': widget.club.id,
+            'year': _newAchievementYearController.text.trim(),
+            'description': _newAchievementDescriptionController.text.trim(),
+          })
+          .select('*')
+          .single();
 
       setState(() {
         _achievements.add(response);
@@ -295,9 +353,9 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$kErrorAddingAchievement $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$kErrorAddingAchievement $e')));
       }
     } finally {
       setState(() {
@@ -306,16 +364,23 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
     }
   }
 
-  Future<void> _updateAchievement(String achievementId, String newYear, String newDescription) async {
+  Future<void> _updateAchievement(
+    String achievementId,
+    String newYear,
+    String newDescription,
+  ) async {
     setState(() {
       _isLoading = true;
     });
     try {
-      await supabase.from(kAchievementsTable).update({
-        'year': newYear.trim(),
-        'description': newDescription.trim(),
-        'updated_at': DateTime.now().toIso8601String(),
-      }).eq('id', achievementId);
+      await supabase
+          .from(kAchievementsTable)
+          .update({
+            'year': newYear.trim(),
+            'description': newDescription.trim(),
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', achievementId);
 
       await _fetchAchievements(); // Refresh the list
       if (mounted) {
@@ -336,9 +401,16 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
     }
   }
 
-  void _showEditAchievementDialog(BuildContext context, Map<String, dynamic> achievement) {
-    final TextEditingController yearController = TextEditingController(text: achievement['year'] as String);
-    final TextEditingController descriptionController = TextEditingController(text: achievement['description'] as String);
+  void _showEditAchievementDialog(
+    BuildContext context,
+    Map<String, dynamic> achievement,
+  ) {
+    final TextEditingController yearController = TextEditingController(
+      text: achievement['year'] as String,
+    );
+    final TextEditingController descriptionController = TextEditingController(
+      text: achievement['description'] as String,
+    );
 
     showDialog(
       context: context,
@@ -368,7 +440,11 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
             ElevatedButton(
               onPressed: () async {
                 Navigator.pop(context);
-                await _updateAchievement(achievement['id'] as String, yearController.text, descriptionController.text);
+                await _updateAchievement(
+                  achievement['id'] as String,
+                  yearController.text,
+                  descriptionController.text,
+                );
               },
               child: const Text(kUpdateAchievementButtonText),
             ),
@@ -403,7 +479,10 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
     }
   }
 
-  Future<void> _pickImage(ImageSource source, Function(File?) onImagePicked) async {
+  Future<void> _pickImage(
+    ImageSource source,
+    Function(File?) onImagePicked,
+  ) async {
     final pickedFile = await ImagePicker().pickImage(source: source);
     if (pickedFile != null) {
       onImagePicked(File(pickedFile.path));
@@ -426,27 +505,35 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
       if (_profileImage != null) {
         profileImageUrl = await _uploadImage(_profileImage!);
       } else if (widget.club.profileImagePath.startsWith('http')) {
-        profileImageUrl = widget.club.profileImagePath; // Retain existing URL if not changed
+        profileImageUrl =
+            widget.club.profileImagePath; // Retain existing URL if not changed
       } else {
-        profileImageUrl = kDefaultProfileImagePath; // Use default if no new image and no existing URL
+        profileImageUrl =
+            kDefaultProfileImagePath; // Use default if no new image and no existing URL
       }
 
       String? coverImageUrl;
       if (_coverImage != null) {
         coverImageUrl = await _uploadImage(_coverImage!);
       } else if (widget.club.coverImagePath.startsWith('http')) {
-        coverImageUrl = widget.club.coverImagePath; // Retain existing URL if not changed
+        coverImageUrl =
+            widget.club.coverImagePath; // Retain existing URL if not changed
       } else {
-        coverImageUrl = kDefaultCoverImagePath; // Use default if no new image and no existing URL
+        coverImageUrl =
+            kDefaultCoverImagePath; // Use default if no new image and no existing URL
       }
 
-      await supabase.from(kClubsTable).update({
-        'name': _clubNameController.text.trim(),
-        'description': _descriptionController.text.trim(),
-        'profile_image_path': profileImageUrl,
-        'cover_image_path': coverImageUrl,
-        'updated_at': DateTime.now().toIso8601String(), // Add updated_at timestamp
-      }).eq('id', widget.club.id);
+      await supabase
+          .from(kClubsTable)
+          .update({
+            'name': _clubNameController.text.trim(),
+            'description': _descriptionController.text.trim(),
+            'profile_image_path': profileImageUrl,
+            'cover_image_path': coverImageUrl,
+            'updated_at': DateTime.now()
+                .toIso8601String(), // Add updated_at timestamp
+          })
+          .eq('id', widget.club.id);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -468,12 +555,11 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
   }
 
   Future<String> _uploadImage(File image) async {
-    final String fileName = '${widget.club.id}/${DateTime.now().millisecondsSinceEpoch}.jpg';
-    final String publicUrl = await supabase.storage.from('club_images').upload(
-          fileName,
-          image,
-          fileOptions: const FileOptions(upsert: true),
-        );
+    final String fileName =
+        '${widget.club.id}/${DateTime.now().millisecondsSinceEpoch}.jpg';
+    final String publicUrl = await supabase.storage
+        .from('club_images')
+        .upload(fileName, image, fileOptions: const FileOptions(upsert: true));
     return publicUrl;
   }
 
@@ -481,7 +567,10 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(kEditClubProfileTitle, style: TextStyle(color: kWhiteColor, fontWeight: FontWeight.w600)),
+        title: const Text(
+          kEditClubProfileTitle,
+          style: TextStyle(color: kWhiteColor, fontWeight: FontWeight.w600),
+        ),
         backgroundColor: kPrimaryColor,
         iconTheme: const IconThemeData(color: kWhiteColor),
         actions: [
@@ -530,11 +619,21 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(kProfilePictureLabel, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        Text(
+                          kProfilePictureLabel,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         const SizedBox(height: 8),
                         GestureDetector(
                           onTap: _canEdit
-                              ? () => _pickImage(ImageSource.gallery, (image) => setState(() => _profileImage = image))
+                              ? () => _pickImage(
+                                  ImageSource.gallery,
+                                  (image) =>
+                                      setState(() => _profileImage = image),
+                                )
                               : null, // Disable onTap if not editable
                           child: Container(
                             height: 150,
@@ -544,18 +643,46 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(color: kGreyColor.shade400),
                               image: _profileImage != null
-                                  ? DecorationImage(image: FileImage(_profileImage!), fit: BoxFit.cover)
-                                  : widget.club.profileImagePath.startsWith('http')
-                                      ? DecorationImage(image: NetworkImage(widget.club.profileImagePath), fit: BoxFit.cover)
-                                      : DecorationImage(image: AssetImage(widget.club.profileImagePath), fit: BoxFit.cover),
+                                  ? DecorationImage(
+                                      image: FileImage(_profileImage!),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : widget.club.profileImagePath.startsWith(
+                                      'http',
+                                    )
+                                  ? DecorationImage(
+                                      image: NetworkImage(
+                                        widget.club.profileImagePath,
+                                      ),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : DecorationImage(
+                                      image: AssetImage(
+                                        widget.club.profileImagePath,
+                                      ),
+                                      fit: BoxFit.cover,
+                                    ),
                             ),
-                            child: _profileImage == null && !widget.club.profileImagePath.startsWith('http')
+                            child:
+                                _profileImage == null &&
+                                    !widget.club.profileImagePath.startsWith(
+                                      'http',
+                                    )
                                 ? Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Icon(Icons.camera_alt, size: 40, color: kGreyColor[600]),
+                                      Icon(
+                                        Icons.camera_alt,
+                                        size: 40,
+                                        color: kGreyColor[600],
+                                      ),
                                       const SizedBox(height: 8),
-                                      Text(kSelectProfilePicture, style: TextStyle(color: kGreyColor[600])),
+                                      Text(
+                                        kSelectProfilePicture,
+                                        style: TextStyle(
+                                          color: kGreyColor[600],
+                                        ),
+                                      ),
                                     ],
                                   )
                                 : null,
@@ -568,11 +695,21 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(kCoverPhotoLabel, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        Text(
+                          kCoverPhotoLabel,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         const SizedBox(height: 8),
                         GestureDetector(
                           onTap: _canEdit
-                              ? () => _pickImage(ImageSource.gallery, (image) => setState(() => _coverImage = image))
+                              ? () => _pickImage(
+                                  ImageSource.gallery,
+                                  (image) =>
+                                      setState(() => _coverImage = image),
+                                )
                               : null, // Disable onTap if not editable
                           child: Container(
                             height: 150,
@@ -582,18 +719,46 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(color: kGreyColor.shade400),
                               image: _coverImage != null
-                                  ? DecorationImage(image: FileImage(_coverImage!), fit: BoxFit.cover)
-                                  : widget.club.coverImagePath.startsWith('http')
-                                      ? DecorationImage(image: NetworkImage(widget.club.coverImagePath), fit: BoxFit.cover)
-                                      : DecorationImage(image: AssetImage(widget.club.coverImagePath), fit: BoxFit.cover),
+                                  ? DecorationImage(
+                                      image: FileImage(_coverImage!),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : widget.club.coverImagePath.startsWith(
+                                      'http',
+                                    )
+                                  ? DecorationImage(
+                                      image: NetworkImage(
+                                        widget.club.coverImagePath,
+                                      ),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : DecorationImage(
+                                      image: AssetImage(
+                                        widget.club.coverImagePath,
+                                      ),
+                                      fit: BoxFit.cover,
+                                    ),
                             ),
-                            child: _coverImage == null && !widget.club.coverImagePath.startsWith('http')
+                            child:
+                                _coverImage == null &&
+                                    !widget.club.coverImagePath.startsWith(
+                                      'http',
+                                    )
                                 ? Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Icon(Icons.camera_alt, size: 40, color: kGreyColor[600]),
+                                      Icon(
+                                        Icons.camera_alt,
+                                        size: 40,
+                                        color: kGreyColor[600],
+                                      ),
                                       const SizedBox(height: 8),
-                                      Text(kSelectCoverPhoto, style: TextStyle(color: kGreyColor[600])),
+                                      Text(
+                                        kSelectCoverPhoto,
+                                        style: TextStyle(
+                                          color: kGreyColor[600],
+                                        ),
+                                      ),
                                     ],
                                   )
                                 : null,
@@ -603,7 +768,13 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
                     ),
                     const SizedBox(height: 24),
                     // Activities Section
-                    Text(kOurActivitiesTitle, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(
+                      kOurActivitiesTitle,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     // List current activities
                     ListView.builder(
@@ -615,18 +786,38 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
                         return Card(
                           margin: const EdgeInsets.only(bottom: 8),
                           child: ListTile(
-                            title: Text(activity['title'] as String, style: const TextStyle(fontWeight: FontWeight.bold)),
+                            title: Text(
+                              activity['title'] as String,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                             subtitle: Text(activity['description'] as String),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
-                                  icon: const Icon(Icons.edit, color: kPrimaryColor),
-                                  onPressed: _canEdit ? () => _showEditActivityDialog(context, activity) : null, // Disable if not editable
+                                  icon: const Icon(
+                                    Icons.edit,
+                                    color: kPrimaryColor,
+                                  ),
+                                  onPressed: _canEdit
+                                      ? () => _showEditActivityDialog(
+                                          context,
+                                          activity,
+                                        )
+                                      : null, // Disable if not editable
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.delete, color: kRedColor),
-                                  onPressed: _canEdit ? () => _deleteActivity(activity['id'] as String) : null, // Disable if not editable
+                                  icon: const Icon(
+                                    Icons.delete,
+                                    color: kRedColor,
+                                  ),
+                                  onPressed: _canEdit
+                                      ? () => _deleteActivity(
+                                          activity['id'] as String,
+                                        )
+                                      : null, // Disable if not editable
                                 ),
                               ],
                             ),
@@ -636,7 +827,13 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
                     ),
                     const SizedBox(height: 16),
                     // Add new activity form
-                    Text(kAddActivityTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text(
+                      kAddActivityTitle,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _newActivityTitleController,
@@ -646,7 +843,9 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _newActivityDescriptionController,
-                      decoration: _buildInputDecoration(kActivityDescriptionLabel),
+                      decoration: _buildInputDecoration(
+                        kActivityDescriptionLabel,
+                      ),
                       maxLines: 3,
                       enabled: _canEdit, // Disable if not editable
                     ),
@@ -654,7 +853,9 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: _canEdit ? _addActivity : null, // Disable if not editable
+                        onPressed: _canEdit
+                            ? _addActivity
+                            : null, // Disable if not editable
                         style: ElevatedButton.styleFrom(
                           backgroundColor: kPrimaryColor,
                           foregroundColor: kWhiteColor,
@@ -664,7 +865,13 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
                     ),
                     const SizedBox(height: 24),
                     // Achievements Section
-                    Text(kOurAchievementsTitle, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(
+                      kOurAchievementsTitle,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     // List current achievements
                     ListView.builder(
@@ -676,17 +883,37 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
                         return Card(
                           margin: const EdgeInsets.only(bottom: 8),
                           child: ListTile(
-                            title: Text('${achievement['year']} - ${achievement['description']}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            title: Text(
+                              '${achievement['year']} - ${achievement['description']}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
-                                  icon: const Icon(Icons.edit, color: kPrimaryColor),
-                                  onPressed: _canEdit ? () => _showEditAchievementDialog(context, achievement) : null, // Disable if not editable
+                                  icon: const Icon(
+                                    Icons.edit,
+                                    color: kPrimaryColor,
+                                  ),
+                                  onPressed: _canEdit
+                                      ? () => _showEditAchievementDialog(
+                                          context,
+                                          achievement,
+                                        )
+                                      : null, // Disable if not editable
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.delete, color: kRedColor),
-                                  onPressed: _canEdit ? () => _deleteAchievement(achievement['id'] as String) : null, // Disable if not editable
+                                  icon: const Icon(
+                                    Icons.delete,
+                                    color: kRedColor,
+                                  ),
+                                  onPressed: _canEdit
+                                      ? () => _deleteAchievement(
+                                          achievement['id'] as String,
+                                        )
+                                      : null, // Disable if not editable
                                 ),
                               ],
                             ),
@@ -696,7 +923,13 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
                     ),
                     const SizedBox(height: 16),
                     // Add new achievement form
-                    Text(kAddAchievementTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text(
+                      kAddAchievementTitle,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _newAchievementYearController,
@@ -706,7 +939,9 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _newAchievementDescriptionController,
-                      decoration: _buildInputDecoration(kAchievementDescriptionLabel),
+                      decoration: _buildInputDecoration(
+                        kAchievementDescriptionLabel,
+                      ),
                       maxLines: 3,
                       enabled: _canEdit, // Disable if not editable
                     ),
@@ -714,7 +949,9 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: _canEdit ? _addAchievement : null, // Disable if not editable
+                        onPressed: _canEdit
+                            ? _addAchievement
+                            : null, // Disable if not editable
                         style: ElevatedButton.styleFrom(
                           backgroundColor: kPrimaryColor,
                           foregroundColor: kWhiteColor,
@@ -726,7 +963,9 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: _canEdit ? _updateClubProfile : null, // Disable if not editable
+                        onPressed: _canEdit
+                            ? _updateClubProfile
+                            : null, // Disable if not editable
                         style: ElevatedButton.styleFrom(
                           backgroundColor: kPrimaryColor,
                           foregroundColor: kWhiteColor,
@@ -736,10 +975,15 @@ class _EditClubProfilePageState extends State<EditClubProfilePage> {
                           ),
                         ),
                         child: _isLoading
-                            ? const CircularProgressIndicator(color: kWhiteColor)
+                            ? const CircularProgressIndicator(
+                                color: kWhiteColor,
+                              )
                             : const Text(
                                 kUpdateClubProfileButtonText,
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                       ),
                     ),

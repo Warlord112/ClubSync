@@ -1,3 +1,4 @@
+import '../utils/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'; // Import Supabase
 import '../data/club_data.dart';
@@ -25,6 +26,7 @@ class _HomePageState extends State<HomePage> {
 
   // Initialize clubs list
   List<Club> _clubs = []; // Initialize as empty list
+  bool _isCurrentUserInstructor = false;
 
   @override
   void initState() {
@@ -39,7 +41,7 @@ class _HomePageState extends State<HomePage> {
         try {
           final resp = await supabase
               .from('users')
-              .select('student_id')
+              .select('student_id, role')
               .eq('id', user.id)
               .maybeSingle();
           final meta = user.userMetadata;
@@ -55,9 +57,14 @@ class _HomePageState extends State<HomePage> {
               : (metaStudentId != null && metaStudentId.isNotEmpty
                     ? metaStudentId
                     : user.id);
+
+          final String? role = resp != null ? resp['role'] as String? : null;
+          _isCurrentUserInstructor =
+              role == 'Instructor' || role == kRoleInstructor;
         } catch (e) {
           print('Error fetching student_id for current user: $e');
           _currentStudentId = user.id;
+          _isCurrentUserInstructor = false;
         }
       } else {
         print('User not logged in on Homepage.');
@@ -87,8 +94,10 @@ class _HomePageState extends State<HomePage> {
         return PostsPage(studentId: _currentStudentId!, clubs: _clubs);
       case 1: // All Clubs
         return ClubsPage(studentId: _currentStudentId!, clubs: _clubs);
-      case 2: // Create Post
-        return CreatePostPage(studentId: _currentStudentId!, clubs: _clubs);
+      case 2: // Create Post (only for instructors)
+        return _isCurrentUserInstructor
+            ? CreatePostPage(studentId: _currentStudentId!, clubs: _clubs)
+            : PostsPage(studentId: _currentStudentId!, clubs: _clubs);
       case 3: // Events
         return EventsPage(clubs: _clubs, studentId: _currentStudentId!);
       case 4: // Profile
@@ -112,6 +121,14 @@ class _HomePageState extends State<HomePage> {
         type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
         onTap: (index) {
+          if (index == 2 && !_isCurrentUserInstructor) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Only Instructors can make a post.'),
+              ),
+            );
+            return; // Prevent navigating to Create Post tab for students
+          }
           setState(() {
             _selectedIndex = index;
           });

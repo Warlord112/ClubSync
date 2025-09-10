@@ -3,6 +3,7 @@ import '../data/club_data.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../utils/constants.dart';
 
 class CreatePostPage extends StatefulWidget {
   final String studentId;
@@ -27,9 +28,54 @@ class _CreatePostPageState extends State<CreatePostPage> {
   @override
   void initState() {
     super.initState();
+    _enforceInstructorOnly();
     // Preselect the first club if available
     if (widget.clubs.isNotEmpty) {
       _selectedClubId = widget.clubs.first.id;
+    }
+  }
+
+  Future<void> _enforceInstructorOnly() async {
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('You must be logged in to create a post.'),
+            ),
+          );
+          Navigator.pop(context);
+        });
+        return;
+      }
+      final resp = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle();
+      final String? role = resp != null ? resp['role'] as String? : null;
+      final bool isInstructor = role == kRoleInstructor || role == 'Instructor';
+      if (!isInstructor) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Only instructors can create a post.'),
+            ),
+          );
+          Navigator.pop(context);
+        });
+      }
+    } catch (e) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error verifying permissions: $e')),
+        );
+        Navigator.pop(context);
+      });
     }
   }
 

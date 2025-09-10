@@ -30,6 +30,9 @@ const String kPositionFacultyAdvisor = 'Faculty Advisor';
 // Event Details Strings
 const String kUpcomingEventsTitle = 'Upcoming Events';
 const String kNoUpcomingEventsText = 'No upcoming events';
+// New: Ongoing Events Strings
+const String kOngoingEventsTitle = 'On Going Events';
+const String kNoOngoingEventsText = 'No on going events';
 const String kPastEventsTitle = 'Past Events';
 const String kNoPastEventsText = 'No past events';
 

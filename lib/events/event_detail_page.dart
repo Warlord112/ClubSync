@@ -11,7 +11,13 @@ class EventDetailPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(event.title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: Text(
+          event.title,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
         backgroundColor: const Color(0xFF6a0e33),
         foregroundColor: Colors.white,
       ),
@@ -27,7 +33,8 @@ class EventDetailPage extends StatelessWidget {
                 child: Image(
                   image: event.imagePath.startsWith('assets/')
                       ? AssetImage(event.imagePath) as ImageProvider
-                      : File.fromUri(Uri.parse(event.imagePath)) as ImageProvider,
+                      : File.fromUri(Uri.parse(event.imagePath))
+                            as ImageProvider,
                   height: 250, // Increased height for cover picture
                   width: double.infinity,
                   fit: BoxFit.cover,
@@ -50,12 +57,17 @@ class EventDetailPage extends StatelessWidget {
                       print('Interested in event: ${event.title}');
                     },
                     icon: const Icon(Icons.star_border),
-                    label: const Text('Interested', style: TextStyle(fontSize: 16)),
+                    label: const Text(
+                      'Interested',
+                      style: TextStyle(fontSize: 16),
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.grey[200],
                       foregroundColor: Colors.black87,
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
                 ),
@@ -71,7 +83,9 @@ class EventDetailPage extends StatelessWidget {
                       backgroundColor: const Color(0xFF6a0e33),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
                 ),
@@ -96,12 +110,18 @@ class EventDetailPage extends StatelessWidget {
               children: [
                 Text(
                   '${event.goingCount} going',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Text(
                   '${event.interestedCount} interested',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
@@ -115,13 +135,19 @@ class EventDetailPage extends StatelessWidget {
             // Discussion Section
             Text(
               'Discussion',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey[800]),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[800],
+              ),
             ),
             const SizedBox(height: 16),
             TextField(
               decoration: InputDecoration(
                 hintText: 'Write a comment...',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.send),
                   onPressed: () {
@@ -133,7 +159,10 @@ class EventDetailPage extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             // Placeholder for comments list
-            const Text('No comments yet. Be the first to comment!', style: TextStyle(color: Colors.grey)),
+            const Text(
+              'No comments yet. Be the first to comment!',
+              style: TextStyle(color: Colors.grey),
+            ),
             const SizedBox(height: 24),
           ],
         ),

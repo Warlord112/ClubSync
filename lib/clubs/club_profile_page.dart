@@ -652,10 +652,7 @@ class _ClubProfilePageState extends State<ClubProfilePage>
               ),
               actions: [
                 // debugPrint('Rendering buttons: _isCurrentUserStudent: $_isCurrentUserStudent, _isMemberOfClub: $_isMemberOfClub, _hasPendingRequest: $_hasPendingRequest'); // Debug print (moved)
-                if (_isCurrentUserInstructor &&
-                    _currentClub!.isExecutiveOrAdvisorMember(
-                      widget.currentStudentId,
-                    )) // Only show edit button to instructor who is an executive or advisor member
+                if (_isCurrentUserInstructor) // Allow edit for instructors only
                   IconButton(
                     icon: const Icon(Icons.edit, color: kWhiteColor),
                     onPressed: _editClubProfile,
@@ -1220,6 +1217,60 @@ class _ClubProfilePageState extends State<ClubProfilePage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // On Going events section (new)
+          Card(
+            elevation: 2,
+            margin: const EdgeInsets.only(bottom: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.play_circle_fill, color: kPrimaryColor),
+                      const SizedBox(width: 8),
+                      const Text(
+                        kOngoingEventsTitle,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16.0),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.play_arrow,
+                            size: 48,
+                            color: kGreyColor[400],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            kNoOngoingEventsText,
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: kGreyColor[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
           // Upcoming events section
           Card(
             elevation: 2,
@@ -1309,7 +1360,7 @@ class _ClubProfilePageState extends State<ClubProfilePage>
                       child: Column(
                         children: [
                           Icon(
-                            Icons.event_available,
+                            Icons.event_busy,
                             size: 48,
                             color: kGreyColor[400],
                           ),

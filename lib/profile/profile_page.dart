@@ -113,7 +113,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 context,
                 MaterialPageRoute(
                   builder: (context) => SettingsPage(
-                    userData: _userData ?? {},
+                    userData: _userData,
                     onProfileUpdated: (updatedData) {
                       setState(() {
                         _userData = updatedData;
@@ -135,6 +135,8 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 8),
                   _buildInfoSection(),
                   const SizedBox(height: 8),
+                  _buildBioSection(),
+                  const SizedBox(height: 8),
                   _buildClubsSection(),
                   const SizedBox(height: 16),
                 ],
@@ -153,9 +155,32 @@ class _ProfilePageState extends State<ProfilePage> {
           CircleAvatar(
             radius: 45,
             backgroundColor: Colors.grey[300],
-            backgroundImage: AssetImage(
-              _userData?['profileImage'] ?? 'assets/images/profile.svg',
-            ),
+            backgroundImage:
+                (() {
+                      final img = _userData?['profileImage'];
+                      if (img is String && img.isNotEmpty) {
+                        final lower = img.toLowerCase();
+                        if (lower.startsWith('http')) return NetworkImage(img);
+                        if (lower.startsWith('assets/') &&
+                            !lower.endsWith('.svg')) {
+                          return AssetImage(img);
+                        }
+                      }
+                      return null;
+                    })()
+                    as ImageProvider?,
+            child: (() {
+              final img = _userData?['profileImage'];
+              final hasValid =
+                  img is String &&
+                  img.isNotEmpty &&
+                  (img.toLowerCase().startsWith('http') ||
+                      (img.toLowerCase().startsWith('assets/') &&
+                          !img.toLowerCase().endsWith('.svg')));
+              return hasValid
+                  ? null
+                  : const Icon(Icons.person, size: 45, color: Colors.white);
+            })(),
           ),
           const SizedBox(height: 12),
           Text(
@@ -264,6 +289,40 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBioSection() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'About Me',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _formatValue(_userData?['bio']),
+            style: TextStyle(fontSize: 14, color: Colors.grey[800]),
           ),
         ],
       ),

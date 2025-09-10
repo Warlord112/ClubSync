@@ -30,6 +30,57 @@ class _CreateEventPageState extends State<CreateEventPage> {
     return '$y-$m-$dd';
   }
 
+  @override
+  void initState() {
+    super.initState();
+    _enforceInstructorOnly();
+  }
+
+  Future<void> _enforceInstructorOnly() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final user = supabase.auth.currentUser;
+      if (user == null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('You must be logged in to create an event.'),
+            ),
+          );
+          Navigator.pop(context);
+        });
+        return;
+      }
+      final resp = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle();
+      final String? role = resp != null ? resp['role'] as String? : null;
+      final bool isInstructor = role == kRoleInstructor || role == 'Instructor';
+      if (!isInstructor) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Only instructors can create an event.'),
+            ),
+          );
+          Navigator.pop(context);
+        });
+      }
+    } catch (e) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error verifying permissions: $e')),
+        );
+        Navigator.pop(context);
+      });
+    }
+  }
+
   Future<void> _pickDate({required bool isStart}) async {
     final initialDate = isStart
         ? (_startDate ?? DateTime.now())
@@ -254,9 +305,7 @@ class _CreateEventPageState extends State<CreateEventPage> {
                     ? const SizedBox(
                         height: 18,
                         width: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                        ),
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Text('Create Event'),
               ),

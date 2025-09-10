@@ -38,18 +38,18 @@ class _SignupScreenState extends State<SignupScreen> {
   final List<String> _departments = ['CSE', 'EEE', 'BBA', 'English'];
 
   final List<String> _semesters = [
-    'Semester 1',
-    'Semester 2',
-    'Semester 3',
-    'Semester 4',
-    'Semester 5',
-    'Semester 6',
-    'Semester 7',
-    'Semester 8',
-    'Semester 9',
-    'Semester 10',
-    'Semester 11',
-    'Semester 12',
+    '1st semester',
+    '2nd semester',
+    '3rd semester',
+    '4th semester',
+    '5th semester',
+    '6th semester',
+    '7th semester',
+    '8th semester',
+    '9th semester',
+    '10th semester',
+    '11th semester',
+    '12th semester',
   ];
 
   @override
